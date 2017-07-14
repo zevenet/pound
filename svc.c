@@ -777,7 +777,7 @@ kill_be(SERVICE *const svc, const BACKEND *be, const int disable_mode)
             case BE_KILL:
                 b->alive = 0;
                 str_be(buf, MAXBUF - 1, b);
-                logmsg(LOG_NOTICE, "(%lx) BackEnd %s dead (killed)", pthread_self(), buf);
+                logmsg(LOG_NOTICE, "(%lx) BackEnd %s dead (killed)  in farm: '%s', service: '%s'", pthread_self(), buf, farmName, svc->name);
                 t_clean(svc->sessions, &be, sizeof(be));
                 break;
             case BE_ENABLE:
@@ -1213,7 +1213,7 @@ do_resurect(void)
                 if(be->resurrect) {
                     be->alive = 1;
                     str_be(buf, MAXBUF - 1, be);
-                    logmsg(LOG_NOTICE, "BackEnd %s resurrect", buf);
+                    logmsg(LOG_NOTICE, "BackEnd %s resurrect in farm: '%s', service: '%s'", buf, farmName, svc->name);
                 }
                 if(be->alive && !be->disabled)
                     svc->tot_pri += be->priority;
@@ -1282,7 +1282,7 @@ do_resurect(void)
                 if(be->resurrect) {
                     be->alive = 1;
                     str_be(buf, MAXBUF - 1, be);
-                    logmsg(LOG_NOTICE, "BackEnd %s resurrect", buf);
+                    logmsg(LOG_NOTICE, "BackEnd %s resurrect in farm: '%s', service: '%s'", buf, farmName, svc->name);
                 }
                 if(be->alive && !be->disabled)
                     svc->tot_pri += be->priority;

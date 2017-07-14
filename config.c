@@ -73,7 +73,7 @@ static CODE facilitynames[] = {
 };
 #endif
 
-static regex_t  Empty, Comment, User, Group, RootJail, Daemon, LogFacility, LogLevel, Alive, SSLEngine, Control;
+static regex_t  Empty, Comment, User, Group, FarmName, RootJail, Daemon, LogFacility, LogLevel, Alive, SSLEngine, Control;
 static regex_t  ListenHTTP, ListenHTTPS, End, Address, Port, Cert, CertDir, xHTTP, Client, CheckURL;
 static regex_t  Err414, Err500, Err501, Err503, ErrNoSsl, NoSslRedirect, MaxRequest, HeadRemove, RewriteLocation, RewriteDestination;
 static regex_t  Service, ServiceName, URL, OrURLs, HeadRequire, HeadDeny, BackEnd, Emergency, Priority, HAport, HAportAddr, StrictTransportSecurity;
@@ -1613,6 +1613,10 @@ parse_file(void)
             lin[matches[1].rm_eo] = '\0';
             if((group = strdup(lin + matches[1].rm_so)) == NULL)
                 conf_err("Group config: out of memory - aborted");
+        } else if(!regexec(&FarmName, lin, 4, matches, 0)) {
+            lin[matches[1].rm_eo] = '\0';
+            if((farmName = strdup(lin + matches[1].rm_so)) == NULL)
+                conf_err("Farm name config: out of memory - aborted");                
         } else if(!regexec(&RootJail, lin, 4, matches, 0)) {
             lin[matches[1].rm_eo] = '\0';
             if((root_jail = strdup(lin + matches[1].rm_so)) == NULL)
@@ -1764,6 +1768,7 @@ config_parse(const int argc, char **const argv)
     || regcomp(&Comment, "^[ \t]*#.*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&User, "^[ \t]*User[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&Group, "^[ \t]*Group[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
+    || regcomp(&FarmName, "^[ \t]*Name[ \t]+(.+)[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&RootJail, "^[ \t]*RootJail[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&Daemon, "^[ \t]*Daemon[ \t]+([01])[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&Threads, "^[ \t]*Threads[ \t]+([1-9][0-9]*)[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
@@ -1922,6 +1927,7 @@ config_parse(const int argc, char **const argv)
 
     user = NULL;
     group = NULL;
+    farmName = NULL;
     root_jail = NULL;
     ctrl_name = NULL;
     DHCustom_params = NULL;
@@ -1952,6 +1958,7 @@ config_parse(const int argc, char **const argv)
     regfree(&Comment);
     regfree(&User);
     regfree(&Group);
+    regfree(&FarmName);
     regfree(&RootJail);
     regfree(&Daemon);
     regfree(&Threads);
