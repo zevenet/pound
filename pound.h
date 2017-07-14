@@ -280,7 +280,10 @@ extern int  numthreads,         /* number of worker threads */
             log_facility,       /* log facility to use */
             print_log,          /* print log messages to stdout/stderr */
             grace,              /* grace period before shutdown */
-            control_sock;       /* control socket */
+            control_sock,       /* control socket */
+            ignore_100;		/* ignore header "Expect: 100-continue"*/
+				/* 1 Ignore header (Default)*/
+				/* 0 Manages header */
 
 extern regex_t  HEADER,     /* Allowed header */
                 CHUNK_HEAD, /* chunk header line */

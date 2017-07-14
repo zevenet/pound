@@ -79,7 +79,7 @@ static regex_t  Err414, Err500, Err501, Err503, ErrNoSsl, NoSslRedirect, MaxRequ
 static regex_t  Service, ServiceName, URL, OrURLs, HeadRequire, HeadDeny, BackEnd, Emergency, Priority, HAport, HAportAddr, StrictTransportSecurity;
 static regex_t  Redirect, TimeOut, Session, Type, TTL, ID, DynScale;
 static regex_t  ClientCert, AddHeader, DisableProto, SSLAllowClientRenegotiation, SSLHonorCipherOrder, Ciphers;
-static regex_t  CAlist, VerifyList, CRLlist, NoHTTPS11, Grace, Include, ConnTO, IgnoreCase, HTTPS;
+static regex_t  CAlist, VerifyList, CRLlist, NoHTTPS11, Grace, Include, ConnTO, IgnoreCase, Ignore100continue, HTTPS;
 static regex_t  Disabled, Threads, CNName, Anonymise, DHParams, ECDHCurve;
 
 static regex_t  ControlGroup, ControlUser, ControlMode;
@@ -867,8 +867,8 @@ parse_service(const char *svc_name)
             parse_sess(res);
         } else if(!regexec(&DynScale, lin, 4, matches, 0)) {
             res->dynscale = atoi(lin + matches[1].rm_so);
-        } else if(!regexec(&IgnoreCase, lin, 4, matches, 0)) {
-            ign_case = atoi(lin + matches[1].rm_so);
+	} else if(!regexec(&IgnoreCase, lin, 4, matches, 0)) {
+	    ign_case = atoi(lin + matches[1].rm_so);
         } else if(!regexec(&Disabled, lin, 4, matches, 0)) {
             res->disabled = atoi(lin + matches[1].rm_so);
         } else if(!regexec(&End, lin, 4, matches, 0)) {
@@ -1653,6 +1653,8 @@ parse_file(void)
             be_to = atoi(lin + matches[1].rm_so);
         } else if(!regexec(&ConnTO, lin, 4, matches, 0)) {
             be_connto = atoi(lin + matches[1].rm_so);
+	} else if(!regexec(&Ignore100continue, lin, 4, matches, 0)) {
+	    ignore_100 = atoi(lin + matches[1].rm_so);
         } else if(!regexec(&IgnoreCase, lin, 4, matches, 0)) {
             ignore_case = atoi(lin + matches[1].rm_so);
 #if OPENSSL_VERSION_NUMBER >= 0x0090800fL
@@ -1832,6 +1834,7 @@ config_parse(const int argc, char **const argv)
     || regcomp(&IncludeDir, "^[ \t]*IncludeDir[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&ConnTO, "^[ \t]*ConnTO[ \t]+([1-9][0-9]*)[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&IgnoreCase, "^[ \t]*IgnoreCase[ \t]+([01])[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
+    || regcomp(&Ignore100continue, "^[ \t]*Ignore100continue[ \t]+([01])[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&HTTPS, "^[ \t]*HTTPS[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&Disabled, "^[ \t]*Disabled[ \t]+([01])[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&DHParams, "^[ \t]*DHParams[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
@@ -1928,6 +1931,7 @@ config_parse(const int argc, char **const argv)
     alive_to = 30;
     daemonize = 1;
     grace = 30;
+    ignore_100 = 1;
 
     services = NULL;
     listeners = NULL;
@@ -2018,6 +2022,7 @@ config_parse(const int argc, char **const argv)
     regfree(&IncludeDir);
     regfree(&ConnTO);
     regfree(&IgnoreCase);
+    regfree(&Ignore100continue);
     regfree(&HTTPS);
     regfree(&Disabled);
     regfree(&CNName);

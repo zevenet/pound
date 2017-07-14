@@ -520,7 +520,7 @@ log_bytes(char *res, const LONG cnt)
 void
 do_http(thr_arg *arg)
 {
-    int                 cl_11, be_11, res, chunked, n, sock, no_cont, skip, conn_closed, force_10, sock_proto, is_rpc;
+    int                 cl_11, be_11, res, chunked, n, sock, no_cont, skip, conn_closed, force_10, sock_proto, is_rpc, exp_cont, read_cl_body;
     LISTENER            *lstn;
     SERVICE             *svc;
     BACKEND             *backend, *cur_backend, *old_backend;
@@ -706,7 +706,7 @@ do_http(thr_arg *arg)
         }
 
         /* check other headers */
-        for(chunked = 0, cont = L_1, n = 1; n < MAXHEADERS && headers[n]; n++) {
+        for(chunked = 0, cont = L_1, n = 1, exp_cont = 0; n < MAXHEADERS && headers[n]; n++) {
             /* no overflow - see check_header for details */
             switch(check_header(headers[n], buf)) {
             case HEADER_HOST:
@@ -742,13 +742,14 @@ do_http(thr_arg *arg)
                 }
                 break;
             case HEADER_EXPECT:
-                /*
-                 * we do NOT support the "Expect: 100-continue" headers
-                 * support may involve severe performance penalties (non-responding back-end, etc)
-                 * as a stop-gap measure we just skip these headers
-                 */
-                if(!strcasecmp("100-continue", buf))
-                    headers_ok[n] = 0;
+                 // By Zen Load Balancer: Supported "Expect: 100-continue" headers
+                if(!strcasecmp("100-continue", buf)) {
+		    if (ignore_100 == 1) {
+			headers_ok[n] = 0;
+		    } else {
+			exp_cont = 1;
+		    }
+		}
                 break;
             case HEADER_ILLEGAL:
                 if(lstn->log_level > 0) {
@@ -1171,6 +1172,78 @@ do_http(thr_arg *arg)
             BIO_puts(be, "\r\n");
         }
 
+        /* headers from client were sent to backend; if there was an 'Expect: 100-continue' we wait for the backend
+         * to respond and forward this to the client before handling the body of the request. 
+         * If server does not reply with 'Continue' we'll close connections and bail out without reading the request.
+         * Note that since we have no timeouts, we'll keep waiting for the server reply.
+         */
+
+        //headers = NULL;            /* headers will be read if exp_cont seen */
+        read_cl_body = 1;          /* will be reset to 0 if exp_cont and '100 Continue' not rx'd, to skip */
+
+        if (exp_cont) {              /* 'Expect: 100-continue' header seen! */
+		logmsg(LOG_INFO, "Managing connection Expect 100-continue");
+
+		/* flush to the back-end */
+        if(cur_backend->be_type == 0 && BIO_flush(be) != 1) {
+            str_be(buf, MAXBUF - 1, cur_backend);
+            end_req = cur_time();
+            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+            logmsg(LOG_NOTICE, "(%lx) e500 for %s error flush to %s/%s: %s (%.3f sec)",
+                pthread_self(), caddr, buf, request, strerror(errno), (end_req - start_req) / 1000000.0);
+            err_reply(cl, h500, lstn->err500);
+            clean_all();
+            return;
+        }
+
+            if((headers = get_headers(be, cl, lstn)) == NULL) {
+                str_be(buf, MAXBUF - 1, cur_backend);
+                end_req = cur_time();
+                addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                logmsg(LOG_NOTICE, "(%lx) e500 for %s response error read headers from %s/%s: %s (%.3f secs)",
+                    pthread_self(), caddr, buf, request, strerror(errno), (end_req - start_req) / 1000000.0);
+                err_reply(cl, h500, lstn->err500);
+                clean_all();
+                return;
+            }
+            strncpy(response, headers[0], MAXBUF);  /* get_headers made sure of termination & length */
+            be_11 = (response[7] == '1');           /* just in case this is needed somewhere somehow */
+            if (regexec(&RESP_SKIP, response, 0, NULL, 0)) {      /* other reply than '100 Continue' ? */
+                logmsg(LOG_NOTICE, "(%lx) didn't get '100 Continue' but '%s' response from backend", pthread_self(), response);
+                conn_closed = 1;        /* force be connection to close; probably overkill but safe */
+                read_cl_body = 0;       /* skip reading client body */
+            } else {
+                /* send the response to client */
+                for(n = 0; n < MAXHEADERS && headers[n]; n++) {
+                    /* logmsg(LOG_NOTICE, "(%lx) sending '%s' to client", pthread_self(), headers[n]); */
+                    if(BIO_printf(cl, "%s\r\n", headers[n]) <= 0) {
+                        if(errno) {
+                            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                            logmsg(LOG_NOTICE, "(%lx) error write headers to %s: %s", pthread_self(), caddr, strerror(errno));
+                        }
+                        free_headers(headers);
+                        clean_all();
+                        return;
+                    }
+                }
+                free_headers(headers);
+                headers = NULL;
+
+                /* final CRLF */
+                BIO_puts(cl, "\r\n");
+                if(BIO_flush(cl) != 1) {
+                    if(errno) {
+                        addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                        logmsg(LOG_NOTICE, "(%lx) error flush headers to %s: %s", pthread_self(), caddr, strerror(errno));
+                    }
+                    clean_all();
+                    return;
+                }
+             }
+        }
+
+        if (read_cl_body) {   /* read client body if '100 Continue' rx'd or no 'Expect: 100-continue' seen */
+
         if(cl_11 && chunked) {
             /* had Transfer-encoding: chunked so read/write all the chunks (HTTP/1.1 only) */
             if(copy_chunks(cl, be, NULL, cur_backend->be_type, lstn->max_req)) {
@@ -1259,7 +1332,8 @@ do_http(thr_arg *arg)
                     BIO_flush(be);
                 }
             }
-        }
+	 } 
+	}
 
         /* flush to the back-end */
         if(cur_backend->be_type == 0 && BIO_flush(be) != 1) {
@@ -1413,7 +1487,8 @@ do_http(thr_arg *arg)
             break;
         }
 
-        /* get the response */
+	/* we'll arrive directly here if '100 Continue' was expected but not received; headers will be valid then */
+	/* get the response */
         for(skip = 1; skip;) {
             if((headers = get_headers(be, cl, lstn)) == NULL) {
                 str_be(buf, MAXBUF - 1, cur_backend);
@@ -1429,8 +1504,12 @@ do_http(thr_arg *arg)
             strncpy(response, headers[0], MAXBUF);
             be_11 = (response[7] == '1');
             /* responses with code 100 are never passed back to the client */
-            skip = !regexec(&RESP_SKIP, response, 0, NULL, 0);
+	    if (exp_cont == 1){
+		skip = 0;  /* was: !regexec(&RESP_SKIP, response, 0, NULL, 0); to ignore 100_continue */
             /* some response codes (1xx, 204, 304) have no content */
+	    } else {
+		skip = !regexec(&RESP_SKIP, response, 0, NULL, 0);
+	    }
             if(!no_cont && !regexec(&RESP_IGN, response, 0, NULL, 0))
                 no_cont = 1;
 
@@ -1565,6 +1644,7 @@ do_http(thr_arg *arg)
             if(!no_cont) {
                 /* ignore this if request was HEAD or similar */
                 if(be_11 && chunked) {
+		    logmsg(LOG_INFO, "Executing copy_chunks");
                     /* had Transfer-encoding: chunked so read/write all the chunks (HTTP/1.1 only) */
                     if(copy_chunks(be, cl, &res_bytes, skip, L0)) {
                         /* copy_chunks() has its own error messages */

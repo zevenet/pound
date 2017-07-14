@@ -67,6 +67,8 @@ t_add(LHASH_OF(TABNODE) *const tab, const char *key, const void *content, const 
         free(old->content);
         free(old);
         logmsg(LOG_WARNING, "t_add() DUP");
+    } else {
+	logmsg(LOG_DEBUG, "t_add() Key %s added", key);
     }
     return;
 }
@@ -87,8 +89,11 @@ t_find(LHASH_OF(TABNODE) *const tab, char *const key)
 #else
     if((res = (TABNODE *)lh_retrieve(tab, &t)) != NULL) {
 #endif
+	logmsg(LOG_DEBUG, "t_find() Updated access to %s", key);
         res->last_acc = time(NULL);
         return res->content;
+    } else {
+	logmsg(LOG_DEBUG, "t_find() Key %s not found in the service", key);
     }
     return NULL;
 }
@@ -110,6 +115,8 @@ t_remove(LHASH_OF(TABNODE) *const tab, char *const key)
         free(res->key);
         free(res->content);
         free(res);
+    } else {
+	logmsg(LOG_DEBUG, "t_remove() Key %s removed", key);
     }
     return;
 }

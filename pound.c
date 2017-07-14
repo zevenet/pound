@@ -44,7 +44,8 @@ int         alive_to,           /* check interval for resurrection */
             log_facility,       /* log facility to use */
             print_log,          /* print log messages to stdout/stderr */
             grace,              /* grace period before shutdown */
-            control_sock;       /* control socket */
+            control_sock,       /* control socket */
+	    ignore_100;         /* Disable 100-continue */
 
 SERVICE     *services;          /* global services (if any) */
 
