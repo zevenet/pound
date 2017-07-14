@@ -971,8 +971,8 @@ do_http(thr_arg *arg)
         /* send the request */
         if(cur_backend->be_type == 0) {
             for(n = 0; n < MAXHEADERS && headers[n]; n++) {
-                if(!headers_ok[n])
-                    continue;
+            	if(!headers_ok[n])
+            		continue;
                 /* this is the earliest we can check for Destination - we had no back-end before */
                 if(lstn->rewr_dest && check_header(headers[n], buf) == HEADER_DESTINATION) {
                     if(regexec(&LOCATION, buf, 4, matches, 0)) {
@@ -1434,6 +1434,8 @@ do_http(thr_arg *arg)
             if(!no_cont && !regexec(&RESP_IGN, response, 0, NULL, 0))
                 no_cont = 1;
 
+            for(n = 0; n < MAXHEADERS; n++)
+            	headers_ok[n] = 1;
             for(chunked = 0, cont = -1L, n = 1; n < MAXHEADERS && headers[n]; n++) {
                 switch(check_header(headers[n], buf)) {
                 case HEADER_CONNECTION:
@@ -1484,6 +1486,11 @@ do_http(thr_arg *arg)
                         }
                     }
                     break;
+                case HEADER_STRICT_TRANSPORT_SECURITY:
+                	/* enforce pound's STS header */
+                	if(svc->sts >= 0)
+                		headers_ok[n] = 0;
+                	break;
                 }
             }
 
@@ -1493,6 +1500,8 @@ do_http(thr_arg *arg)
             /* send the response */
             if(!skip)
                 for(n = 0; n < MAXHEADERS && headers[n]; n++) {
+                	if(!headers_ok[n])
+                		continue;
                     if(BIO_printf(cl, "%s\r\n", headers[n]) <= 0) {
                         if(errno) {
                             addr2str(caddr, MAXBUF - 1, &from_host, 1);
@@ -1504,6 +1513,9 @@ do_http(thr_arg *arg)
                     }
                 }
             free_headers(headers);
+            if(!skip && ssl && svc->sts >= 0)
+            	BIO_printf(cl, "Strict-Transport-Security: max-age=%d\r\n", svc->sts);
+
             if(!skip && cur_backend->be_type == 0 && svc->becookie && cur_backend->bekey) {
                 char *cp = buf;
                 char *ep = buf + sizeof(buf) - 1;

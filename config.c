@@ -76,7 +76,7 @@ static CODE facilitynames[] = {
 static regex_t  Empty, Comment, User, Group, RootJail, Daemon, LogFacility, LogLevel, Alive, SSLEngine, Control;
 static regex_t  ListenHTTP, ListenHTTPS, End, Address, Port, Cert, CertDir, xHTTP, Client, CheckURL;
 static regex_t  Err414, Err500, Err501, Err503, ErrNoSsl, NoSslRedirect, MaxRequest, HeadRemove, RewriteLocation, RewriteDestination;
-static regex_t  Service, ServiceName, URL, OrURLs, HeadRequire, HeadDeny, BackEnd, Emergency, Priority, HAport, HAportAddr;
+static regex_t  Service, ServiceName, URL, OrURLs, HeadRequire, HeadDeny, BackEnd, Emergency, Priority, HAport, HAportAddr, StrictTransportSecurity;
 static regex_t  Redirect, TimeOut, Session, Type, TTL, ID, DynScale;
 static regex_t  ClientCert, AddHeader, DisableProto, SSLAllowClientRenegotiation, SSLHonorCipherOrder, Ciphers;
 static regex_t  CAlist, VerifyList, CRLlist, NoHTTPS11, Grace, Include, ConnTO, IgnoreCase, HTTPS;
@@ -714,6 +714,7 @@ parse_service(const char *svc_name)
     memset(res, 0, sizeof(SERVICE));
     res->sess_type = SESS_NONE;
     res->dynscale = dynscale;
+    res->sts = -1;
     pthread_mutex_init(&res->mut, NULL);
     if(svc_name)
         strncpy(res->name, svc_name, KEY_SIZE);
@@ -792,6 +793,8 @@ parse_service(const char *svc_name)
             lin[matches[1].rm_eo] = '\0';
             if(regcomp(&m->pat, lin + matches[1].rm_so, REG_ICASE | REG_NEWLINE | REG_EXTENDED))
                 conf_err("HeadDeny bad pattern - aborted");
+        } else if(!regexec(&StrictTransportSecurity, lin, 4, matches, 0)) {
+        	res->sts = atoi(lin + matches[1].rm_so);
         } else if(!regexec(&Redirect, lin, 4, matches, 0)) {
             if(res->backends) {
                 for(be = res->backends; be->next; be = be->next)
@@ -1037,12 +1040,16 @@ parse_HTTP(void)
             if(regcomp(&m->pat, lin + matches[1].rm_so, REG_ICASE | REG_NEWLINE | REG_EXTENDED))
                 conf_err("ForceHTTP10 bad pattern");
         } else if(!regexec(&Service, lin, 4, matches, 0)) {
-            if(res->services == NULL)
+            if(res->services == NULL) {
                 res->services = parse_service(NULL);
-            else {
+                if(res->services->sts >= 0)
+                	conf_err("StrictTransportSecurity not allowed in HTTP listener - aborted");
+            } else {
                 for(svc = res->services; svc->next; svc = svc->next)
                     ;
                 svc->next = parse_service(NULL);
+                if(svc->next->sts >= 0)
+                	conf_err("StrictTransportSecurity not allowed in HTTP listener - aborted");
             }
         } else if(!regexec(&ServiceName, lin, 4, matches, 0)) {
             lin[matches[1].rm_eo] = '\0';
@@ -1796,7 +1803,8 @@ config_parse(const int argc, char **const argv)
     || regcomp(&BackendCookie, "^[ \t]*BackendCookie[ \t]+\"(.+)\"[ \t]+\"(.*)\"[ \t]+\"(.*)\"[ \t]+([0-9]+|Session)[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&HeadRequire, "^[ \t]*HeadRequire[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&HeadDeny, "^[ \t]*HeadDeny[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
-    || regcomp(&BackEnd, "^[ \t]*BackEnd[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
+	|| regcomp(&StrictTransportSecurity, "^[ \t]*StrictTransportSecurity[ \t]+([0-9]+)[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
+	|| regcomp(&BackEnd, "^[ \t]*BackEnd[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&Emergency, "^[ \t]*Emergency[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&Priority, "^[ \t]*Priority[ \t]+([1-9])[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&TimeOut, "^[ \t]*TimeOut[ \t]+([1-9][0-9]*)[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
@@ -1981,6 +1989,7 @@ config_parse(const int argc, char **const argv)
     regfree(&BackendCookie);
     regfree(&HeadRequire);
     regfree(&HeadDeny);
+    regfree(&StrictTransportSecurity);
     regfree(&BackEnd);
     regfree(&Emergency);
     regfree(&Priority);
