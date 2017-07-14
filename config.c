@@ -570,7 +570,7 @@ parse_sess(SERVICE *const svc)
             && parm == NULL)
                 conf_err("Session ID not defined - aborted");
             if(svc->sess_type == SESS_COOKIE) {
-                snprintf(lin, MAXBUF - 1, "Cookie[^:]*:.*[ \t]%s=", parm);
+                snprintf(lin, MAXBUF - 1, "Cookie[^:]*:.*[; \t]%s=", parm);
                 if(regcomp(&svc->sess_start, lin, REG_ICASE | REG_NEWLINE | REG_EXTENDED))
                     conf_err("COOKIE pattern failed - aborted");
                 if(regcomp(&svc->sess_pat, "([^;]*)", REG_ICASE | REG_NEWLINE | REG_EXTENDED))
