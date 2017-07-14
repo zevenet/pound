@@ -1,0 +1,4 @@
+#package preinstalled, enable tcmalloc, google libraries and PCRE:
+apt-get install libpcrecpp0 libpcre3-dev libpcre3 libpcre++0 libpcre++-dev libtcmalloc-minimal4 libgoogle-perftools4 libgoogle-perftools-dev
+#compilation command:
+./configure --with-maxbuf=16384 --prefix=/opt/pound28a
