@@ -1,3 +1,22 @@
+POUND - Zevenet Dev team has added some new properties to 
+	Pound Reverse-Proxy in order to offer some new 
+	functionalities required for critical environments. 
+	They can be checked in the git commits but the 
+	following lines describe the most important changes:
+	
+	1. Added support for HSTS headers
+	commit: 802f41a26c29176bf371be1b5f379a435b044648
+	2. Supported 100Continue headers
+	commit: dcbbff5b7514c267b8a9caa5c336479a99cce8d4
+	3. Added new Directive Name in order to log with 
+	a higher level of detail
+	commit: ca007c53944377618f1d07eb93d1cb90f3eafd05
+	4. Poundctl counts backend established conns.
+	commit: 8044ed9daa966b89e031a8da05bbdf3041b33a93
+	5. Supported Openssl 1.0.2 Compilation
+	commit: 8044ed9daa966b89e031a8da05bbdf3041b33a93
+
+
 POUND - REVERSE-PROXY AND LOAD-BALANCER
 
     The Pound program is a reverse proxy, load balancer and
