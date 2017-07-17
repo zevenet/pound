@@ -505,8 +505,9 @@ log_bytes(char *res, const LONG cnt)
 }
 
 /* Cleanup code. This should really be in the pthread_cleanup_push, except for bugs in some implementations */
-
+// if(count_backend->connections > 0)
 #define clean_all() {   \
+	if(flagCount) { flagCount=0; {count_backend->connections--; } }	\
     if(ssl != NULL) { BIO_ssl_shutdown(cl); } \
     if(be != NULL) { BIO_flush(be); BIO_reset(be); BIO_free_all(be); be = NULL; } \
     if(cl != NULL) { BIO_flush(cl); BIO_reset(cl); BIO_free_all(cl); cl = NULL; } \
@@ -521,9 +522,10 @@ void
 do_http(thr_arg *arg)
 {
     int                 cl_11, be_11, res, chunked, n, sock, no_cont, skip, conn_closed, force_10, sock_proto, is_rpc, exp_cont, read_cl_body;
+    int			flagCount=0;
     LISTENER            *lstn;
     SERVICE             *svc;
-    BACKEND             *backend, *cur_backend, *old_backend;
+    BACKEND             *backend, *cur_backend, *old_backend, *count_backend;
     struct addrinfo     from_host, z_addr;
     struct sockaddr_storage from_host_addr;
     BIO                 *oldcl, *cl, *be, *bb, *b64;
@@ -573,6 +575,8 @@ do_http(thr_arg *arg)
     be = NULL;
     ssl = NULL;
     x509 = NULL;
+
+    count_backend=NULL;
 
     if((cl = BIO_new_socket(sock, 1)) == NULL) {
         logmsg(LOG_WARNING, "(%lx) BIO_new_socket failed", pthread_self());
@@ -648,6 +652,16 @@ do_http(thr_arg *arg)
     cl = BIO_push(bb, cl);
 
     for(cl_11 = be_11 = 0;;) {
+		if(count_backend)
+		{
+			if(count_backend->connections < 0)
+			{
+				count_backend->connections=0;
+				str_be(buf, MAXBUF - 1, backend);
+				logmsg(LOG_WARNING, "BACK %s: Negative number of current connections",buf); //
+			}
+		}
+
         res_bytes = L0;
         is_rpc = -1;
         v_host[0] = referer[0] = u_agent[0] = u_name[0] = '\0';
@@ -811,6 +825,8 @@ do_http(thr_arg *arg)
         if(be != NULL) {
             if(is_readable(be, 0)) {
                 /* The only way it's readable is if it's at EOF, so close it! */
+              if(flagCount)
+	{ str_be(buf, MAXBUF - 1, backend);logmsg(LOG_WARNING, "BACK 3 %s %d",buf,backend->connections); }
                 BIO_reset(be);
                 BIO_free_all(be);
                 be = NULL;
@@ -920,6 +936,15 @@ do_http(thr_arg *arg)
                 BIO_set_callback_arg(be, (char *)&ba2);
                 BIO_set_callback(be, bio_callback);
             }
+
+            // add new connection
+            if (flagCount == 0 )
+            {
+		(backend->connections)++;
+		count_backend=backend;
+		flagCount = 1;
+            }
+
             if(backend->ctx != NULL) {
                 if((be_ssl = SSL_new(backend->ctx)) == NULL) {
                     logmsg(LOG_WARNING, "(%lx) be SSL_new: failed", pthread_self());
@@ -964,6 +989,9 @@ do_http(thr_arg *arg)
 
         /* if we have anything but a BACK_END we close the channel */
         if(be != NULL && cur_backend->be_type) {
+			//~ if(flagCount) { flagCount=0; str_be(buf, MAXBUF - 1, backend);logmsg(LOG_WARNING, "BACK 1 %s %d",buf,backend->connections); {count_backend->connections=0;} }
+			if(flagCount)
+	{ str_be(buf, MAXBUF - 1, backend);logmsg(LOG_WARNING, "BACK 1 %s %d",buf,backend->connections); }
             BIO_reset(be);
             BIO_free_all(be);
             be = NULL;
@@ -1780,6 +1808,9 @@ do_http(thr_arg *arg)
         }
 
         if(!be_11) {
+			//~ if(flagCount) { flagCount=0; str_be(buf, MAXBUF - 1, backend);logmsg(LOG_WARNING, "BACK 1 %s %d",buf,backend->connections); {count_backend->connections--;} }
+			if(flagCount)
+	{ str_be(buf, MAXBUF - 1, backend);logmsg(LOG_WARNING, "BACK 2 %s %d",buf,backend->connections); }
             BIO_reset(be);
             BIO_free_all(be);
             be = NULL;

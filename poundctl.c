@@ -122,13 +122,13 @@ be_prt(const int sock)
             be.ha_addr.ai_addr = (struct sockaddr *)&h;
         }
         if(xml_out)
-            printf("<backend index=\"%d\" key=\"%s\" address=\"%s\" avg=\"%.3f\" priority=\"%d\" alive=\"%s\" status=\"%s\" />\n",
+            printf("<backend index=\"%d\" key=\"%s\" address=\"%s\" avg=\"%.3f\" priority=\"%d\" alive=\"%s\" status=\"%s\" connections=\"%d\"/>\n",
                 n_be++, be.bekey,
                 prt_addr(&be.addr), be.t_average / 1000000, be.priority, be.alive? "yes": "DEAD",
-                be.disabled? "DISABLED": "active");
+                be.disabled? "DISABLED": "active",be.connections);
         else
-            printf("    %3d. Backend %s %s (%d %.3f sec) %s\n", n_be++, prt_addr(&be.addr),
-                be.disabled? "DISABLED": "active", be.priority, be.t_average / 1000000, be.alive? "alive": "DEAD");
+            printf("    %3d. Backend %s %s (%d %.3f sec) %s (%d)\n", n_be++, prt_addr(&be.addr),
+                be.disabled? "DISABLED": "active", be.priority, be.t_average / 1000000, be.alive? "alive": "DEAD",be.connections);
     }
     return;
 }
@@ -172,6 +172,7 @@ svc_prt(const int sock)
 {
     SERVICE     svc;
     int         n_svc;
+    BACKEND		be;
 
     n_svc = 0;
     while(read(sock, (void *)&svc, sizeof(SERVICE)) == sizeof(SERVICE)) {
@@ -184,7 +185,7 @@ svc_prt(const int sock)
             else
                 printf("<service index=\"%d\"%s>\n", n_svc++, svc.disabled? " DISABLED": "");
         } else {
-            if(svc.name[0])
+	    if(svc.name[0])
                 printf("  %3d. Service \"%s\" %s (%d)\n", n_svc++, svc.name, svc.disabled? "DISABLED": "active",
                     svc.tot_pri);
             else

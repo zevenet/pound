@@ -342,6 +342,7 @@ typedef struct _backend {
     int                 alive;      /* false if the back-end is dead */
     int                 resurrect;  /* this back-end is to be resurrected */
     int                 disabled;   /* true if the back-end is disabled */
+    int 				connections;
     struct _backend     *next;
 }   BACKEND;
 

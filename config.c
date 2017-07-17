@@ -326,6 +326,7 @@ parse_be(const int is_emergency)
     memset(&res->ha_addr, 0, sizeof(res->ha_addr));
     res->url = NULL;
     res->bekey = NULL;
+    res->connections;
     res->next = NULL;
     has_addr = has_port = 0;
     pthread_mutex_init(&res->mut, NULL);
