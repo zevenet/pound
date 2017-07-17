@@ -1672,7 +1672,6 @@ do_http(thr_arg *arg)
             if(!no_cont) {
                 /* ignore this if request was HEAD or similar */
                 if(be_11 && chunked) {
-		    logmsg(LOG_INFO, "Executing copy_chunks");
                     /* had Transfer-encoding: chunked so read/write all the chunks (HTTP/1.1 only) */
                     if(copy_chunks(be, cl, &res_bytes, skip, L0)) {
                         /* copy_chunks() has its own error messages */
