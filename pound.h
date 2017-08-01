@@ -263,7 +263,7 @@
 
 extern char *user,              /* user to run as */
             *group,             /* group to run as */
-	    *farmName,			/* farm name to run as */
+			*name,			/* farm name to run as */
             *root_jail,         /* directory to chroot to */
             *pid_name,          /* file to record pid in */
             *ctrl_name,         /* control socket name */
@@ -605,7 +605,7 @@ extern void upd_be(SERVICE *const svc, BACKEND *const be, const double);
  * Non-blocking version of connect(2). Does the same as connect(2) but
  * ensures it will time-out after a much shorter time period CONN_TO.
  */
-extern int  connect_nb(const int, const struct addrinfo *, const int);
+extern int  connect_nb(const int, const struct addrinfo *, const int, char *);
 
 /*
  * Parse arguments/config file

@@ -230,12 +230,18 @@ logmsg(const int priority, const char *fmt, ...)
     vsnprintf(buf, MAXBUF, fmt, ap);
     va_end(ap);
     if(log_facility == -1) {
-        fprintf((priority == LOG_INFO || priority == LOG_DEBUG)? stdout: stderr, "%s\n", buf);
+		if (name)
+			fprintf((priority == LOG_INFO || priority == LOG_DEBUG)? stdout: stderr, "%s, %s\n", name, buf);
+		else
+			fprintf((priority == LOG_INFO || priority == LOG_DEBUG)? stdout: stderr, "%s\n", buf);
     } else {
         if(print_log)
             printf("%s\n", buf);
         else
-            syslog(log_facility | priority, "%s", buf);
+            if (name)
+				syslog(log_facility | priority, "%s, %s\n", name, buf);
+			else
+				syslog(log_facility | priority, "%s\n", buf);
     }
     return;
 }
@@ -263,6 +269,34 @@ va_dcl
     return;
 }
 #endif
+
+
+// Log the backend and service
+void
+get_bk_and_srv_string (char *buf, SERVICE *srv, BACKEND *backend)
+{
+	char bk[MAXBUF];
+	int size=0;
+	buf[0]='\0';
+	// Get backend string
+	str_be(bk, MAXBUF - 1, backend);
+	// calculate string size
+	size = strlen(bk) + strlen(srv->name) + 20; // 20 is the constant characters
+
+	if( size < MAXBUF )
+	{
+		// Get string
+		sprintf( buf, "service %s, backend %s,", srv->name, bk );
+	}
+	else
+	{
+		logmsg(LOG_WARNING, "(%lx) buffer size", pthread_self());
+		buf[0]='\0';
+	}
+		
+	return;
+}
+
 
 /*
  * Translate inet/inet6 address/port into a string
@@ -625,7 +659,8 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
     BACKEND     *res;
     char        key[KEY_SIZE + 1];
     char        bekey[KEY_SIZE + 1];
-    int         ret_val, no_be;
+    char 		bk[MAXBUF];
+    int         	ret_val, no_be;
     void        *vp;
 
     if(ret_val = pthread_mutex_lock(&svc->mut))
@@ -640,9 +675,10 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
         /* choose one back-end randomly */
         if (no_be) res = svc->emergency;
         else if (get_bekey_from_HEADERS(bekey, svc, headers)) {
-            logmsg(LOG_DEBUG, "Found BEKEY %s in headers",bekey);
-            res = get_backend_by_key(svc->backends, bekey);
-            if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "found matching backend by bekey");
+			res = get_backend_by_key(svc->backends, bekey);
+			str_be(bk, MAXBUF - 1, res);
+            logmsg(LOG_DEBUG, "service %s, Found BEKEY %s in headers. BEKEY for %s",svc->name, bekey, bk);
+            if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
         } else res = rand_backend(svc->backends, random() % svc->tot_pri);
         break;
     case SESS_IP:
@@ -655,9 +691,10 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
             else {
                 /* no session yet - create one */
                 if (get_bekey_from_HEADERS(bekey, svc, headers)) {
-                    logmsg(LOG_DEBUG, "Found BEKEY %s in headers",bekey);
                     res = get_backend_by_key(svc->backends, bekey);
-                    if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "found matching backend by bekey");
+                    str_be(bk, MAXBUF - 1, res);
+                    logmsg(LOG_DEBUG, "service %s, Found BEKEY %s in headers. BEKEY for %s",svc->name, bekey, bk);
+                    if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
                 } else res = rand_backend(svc->backends, random() % svc->tot_pri);
                 t_add(svc->sessions, key, &res, sizeof(res));
             }
@@ -675,9 +712,10 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                 else {
                     /* no session yet - create one */
                     if (get_bekey_from_HEADERS(bekey, svc, headers)) {
-                        logmsg(LOG_DEBUG,"Found BEKEY %s in headers",bekey);
                         res = get_backend_by_key(svc->backends, bekey);
-                        if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "found matching backend by bekey");
+                        str_be(bk, MAXBUF - 1, res);
+                        logmsg(LOG_DEBUG, "service %s, Found BEKEY %s in headers. BEKEY for %s",svc->name, bekey, bk);
+                        if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
                     } else res = rand_backend(svc->backends, random() % svc->tot_pri);
                     t_add(svc->sessions, key, &res, sizeof(res));
                 }
@@ -698,9 +736,10 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                 else {
                     /* no session yet - create one */
                     if (get_bekey_from_HEADERS(bekey, svc, headers)) {
-                        logmsg(LOG_DEBUG, "Found BEKEY %s in headers",bekey);
                         res = get_backend_by_key(svc->backends, bekey);
-                        if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else printf("found matching backend by bekey");
+                        str_be(bk, MAXBUF - 1, res);
+                        logmsg(LOG_DEBUG, "service %s, Found BEKEY %s in headers. BEKEY for %s",svc->name, bekey, bk);
+                        if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
                     } else res = rand_backend(svc->backends, random() % svc->tot_pri);
                     t_add(svc->sessions, key, &res, sizeof(res));
                 }
@@ -709,9 +748,10 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
         } else {
             if (no_be) res = svc->emergency;
             else if (get_bekey_from_HEADERS(bekey, svc, headers)) {
-                logmsg(LOG_DEBUG, "Found BEKEY %s in headers",bekey);
                 res = get_backend_by_key(svc->backends, bekey);
-                if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "found matching backend by bekey");
+                str_be(bk, MAXBUF - 1, res);
+                logmsg(LOG_DEBUG, "service %s, Found BEKEY %s in headers. BEKEY for %s",svc->name, bekey, bk);
+                if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
             } else res = rand_backend(svc->backends, random() % svc->tot_pri);
         }
         break;
@@ -755,6 +795,10 @@ kill_be(SERVICE *const svc, const BACKEND *be, const int disable_mode)
     BACKEND *b;
     int     ret_val;
     char    buf[MAXBUF];
+    char    buf_log_tag[MAXBUF];
+
+	/* get a tag for logs with backend and service */
+    get_bk_and_srv_string( buf_log_tag, svc, be );
 
     if(ret_val = pthread_mutex_lock(&svc->mut))
         logmsg(LOG_WARNING, "kill_be() lock: %s", strerror(ret_val));
@@ -764,22 +808,21 @@ kill_be(SERVICE *const svc, const BACKEND *be, const int disable_mode)
             switch(disable_mode) {
             case BE_DISABLE:
                 b->disabled = 1;
-                str_be(buf, MAXBUF - 1, b);
-                logmsg(LOG_NOTICE, "(%lx) BackEnd %s disabled", pthread_self(), buf);
+                logmsg(LOG_NOTICE, "%s (%lx) BackEnd disabled", buf_log_tag, pthread_self(), buf);
                 break;
             case BE_KILL:
                 b->alive = 0;
                 str_be(buf, MAXBUF - 1, b);
-                logmsg(LOG_NOTICE, "(%lx) BackEnd %s dead (killed) in farm: '%s', service: '%s'", pthread_self(), buf, farmName, svc->name);
+                logmsg(LOG_NOTICE, "(%lx) BackEnd %s dead (killed) in farm: '%s', service: '%s'", pthread_self(), buf, name, svc->name);
+                logmsg(LOG_NOTICE, "%s (%lx) BackEnd dead (killed)", buf_log_tag, pthread_self());
                 t_clean(svc->sessions, &be, sizeof(be));
                 break;
             case BE_ENABLE:
-                str_be(buf, MAXBUF - 1, b);
-                logmsg(LOG_NOTICE, "(%lx) BackEnd %s enabled", pthread_self(), buf);
+                logmsg(LOG_NOTICE, "%s (%lx) BackEnd enabled", buf_log_tag, pthread_self());
                 b->disabled = 0;
                 break;
             default:
-                logmsg(LOG_WARNING, "kill_be(): unknown mode %d", disable_mode);
+                logmsg(LOG_WARNING, "%s kill_be(): unknown mode %d", buf_log_tag, disable_mode);
                 break;
             }
         if(b->alive && !b->disabled)
@@ -987,32 +1030,32 @@ need_rewrite(const int rewr_loc, char *const location, char *const path, const c
  * it will time-out after a much shorter time period SERVER_TO
  */
 int
-connect_nb(const int sockfd, const struct addrinfo *serv_addr, const int to)
+ connect_nb(const int sockfd, const struct addrinfo *serv_addr, const int to, char *buf_log_tag)
 {
     int             flags, res, error;
     socklen_t       len;
     struct pollfd   p;
 
     if((flags = fcntl(sockfd, F_GETFL, 0)) < 0) {
-        logmsg(LOG_WARNING, "(%lx) connect_nb: fcntl GETFL failed: %s", pthread_self(), strerror(errno));
+        logmsg(LOG_WARNING, "%s (%lx) connect_nb: fcntl GETFL failed: %s", buf_log_tag, pthread_self(), strerror(errno));
         return -1;
     }
     if(fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) < 0) {
-        logmsg(LOG_WARNING, "(%lx) connect_nb: fcntl SETFL failed: %s", pthread_self(), strerror(errno));
+        logmsg(LOG_WARNING, "%s (%lx) connect_nb: fcntl SETFL failed: %s", buf_log_tag, pthread_self(), strerror(errno));
         return -1;
     }
 
     error = 0;
     if((res = connect(sockfd, serv_addr->ai_addr, serv_addr->ai_addrlen)) < 0)
         if(errno != EINPROGRESS) {
-            logmsg(LOG_WARNING, "(%lx) connect_nb: connect failed: %s", pthread_self(), strerror(errno));
+            logmsg(LOG_WARNING, "%s (%lx) connect_nb: connect failed: %s", buf_log_tag, pthread_self(), strerror(errno));
             return (-1);
         }
 
     if(res == 0) {
         /* connect completed immediately (usually localhost) */
         if(fcntl(sockfd, F_SETFL, flags) < 0) {
-            logmsg(LOG_WARNING, "(%lx) connect_nb: fcntl reSETFL failed: %s", pthread_self(), strerror(errno));
+            logmsg(LOG_WARNING, "%s (%lx) connect_nb: fcntl reSETFL failed: %s", buf_log_tag, pthread_self(), strerror(errno));
             return -1;
         }
         return 0;
@@ -1024,30 +1067,30 @@ connect_nb(const int sockfd, const struct addrinfo *serv_addr, const int to)
     if((res = poll(&p, 1, to * 1000)) != 1) {
         if(res == 0) {
             /* timeout */
-            logmsg(LOG_WARNING, "(%lx) connect_nb: poll timed out", pthread_self());
+            logmsg(LOG_WARNING, "%s (%lx) connect_nb: poll timed out", buf_log_tag, pthread_self());
             errno = ETIMEDOUT;
         } else
-            logmsg(LOG_WARNING, "(%lx) connect_nb: poll failed: %s", pthread_self(), strerror(errno));
+            logmsg(LOG_WARNING, "%s (%lx) connect_nb: poll failed: %s", buf_log_tag, pthread_self(), strerror(errno));
         return -1;
     }
 
     /* socket is writeable == operation completed */
     len = sizeof(error);
     if(getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0) {
-        logmsg(LOG_WARNING, "(%lx) connect_nb: getsockopt failed: %s", pthread_self(), strerror(errno));
+        logmsg(LOG_WARNING, "%s (%lx) connect_nb: getsockopt failed: %s", buf_log_tag, pthread_self(), strerror(errno));
         return -1;
     }
 
     /* restore file status flags */
     if(fcntl(sockfd, F_SETFL, flags) < 0) {
-        logmsg(LOG_WARNING, "(%lx) connect_nb: fcntl reSETFL failed: %s", pthread_self(), strerror(errno));
+        logmsg(LOG_WARNING, "%s (%lx) connect_nb: fcntl reSETFL failed: %s", buf_log_tag, pthread_self(), strerror(errno));
         return -1;
     }
 
     if(error) {
         /* getsockopt() shows an error */
         errno = error;
-        logmsg(LOG_WARNING, "(%lx) connect_nb: error after getsockopt: %s", pthread_self(), strerror(errno));
+        logmsg(LOG_WARNING, "%s (%lx) connect_nb: error after getsockopt: %s", buf_log_tag, pthread_self(), strerror(errno));
         return -1;
     }
 
@@ -1068,13 +1111,16 @@ do_resurect(void)
     struct      addrinfo    z_addr, *addr;
     int         sock, modified;
     char        buf[MAXBUF];
+    char        buf_log_tag[MAXBUF];
     int         ret_val;
+
 
     /* check hosts still alive - HAport */
     memset(&z_addr, 0, sizeof(z_addr));
     for(lstn = listeners; lstn; lstn = lstn->next)
     for(svc = lstn->services; svc; svc = svc->next)
     for(be = svc->backends; be; be = be->next) {
+		
         if(be->be_type)
             continue;
         if(!be->alive)
@@ -1100,10 +1146,13 @@ do_resurect(void)
         default:
             continue;
         }
-        if(connect_nb(sock, &be->ha_addr, be->conn_to) != 0) {
+        
+        /* get a tag for logs with backend and service */
+		get_bk_and_srv_string( buf_log_tag, svc, be );
+    
+        if(connect_nb(sock, &be->ha_addr, be->conn_to, buf_log_tag) != 0) {
             kill_be(svc, be, BE_KILL);
-            str_be(buf, MAXBUF - 1, be);
-            logmsg(LOG_NOTICE, "BackEnd %s is dead (HA)", buf);
+            logmsg(LOG_NOTICE, "%s backend is dead (HA)", buf_log_tag);
         }
         shutdown(sock, 2);
         close(sock);
@@ -1136,10 +1185,13 @@ do_resurect(void)
         default:
             continue;
         }
-        if(connect_nb(sock, &be->ha_addr, be->conn_to) != 0) {
+        
+        /* get a tag for logs with backend and service */
+		get_bk_and_srv_string( buf_log_tag, svc, be );
+		
+        if(connect_nb(sock, &be->ha_addr, be->conn_to, buf_log_tag) != 0) {
             kill_be(svc, be, BE_KILL);
-            str_be(buf, MAXBUF - 1, be);
-            logmsg(LOG_NOTICE, "BackEnd %s is dead (HA)", buf);
+            logmsg(LOG_NOTICE, "%s backend is dead (HA)", buf_log_tag);
         }
         shutdown(sock, 2);
         close(sock);
@@ -1191,7 +1243,11 @@ do_resurect(void)
                 }
                 addr = &be->ha_addr;
             }
-            if(connect_nb(sock, addr, be->conn_to) == 0) {
+            
+            /* get a tag for logs with backend and service */
+			get_bk_and_srv_string( buf_log_tag, svc, be );
+			
+            if(connect_nb(sock, addr, be->conn_to, buf_log_tag) == 0) {
                 be->resurrect = 1;
                 modified = 1;
             }
@@ -1200,19 +1256,22 @@ do_resurect(void)
         }
         if(modified) {
             if(ret_val = pthread_mutex_lock(&svc->mut))
-                logmsg(LOG_WARNING, "do_resurect() lock: %s", strerror(ret_val));
+                logmsg(LOG_DEBUG, "do_resurect() lock: %s", strerror(ret_val));
             svc->tot_pri = 0;
             for(be = svc->backends; be; be = be->next) {
                 if(be->resurrect) {
                     be->alive = 1;
+                    /* get a tag for logs with backend and service */
+                    get_bk_and_srv_string( buf_log_tag, svc, be );
                     str_be(buf, MAXBUF - 1, be);
-                    logmsg(LOG_NOTICE, "BackEnd %s resurrect in farm: '%s', service: '%s'", buf, farmName, svc->name);
+					logmsg(LOG_NOTICE, "BackEnd %s resurrect in farm: '%s', service: '%s'", buf, name, svc->name);
+                    logmsg(LOG_NOTICE, "%s backend resurrected", buf_log_tag);
                 }
                 if(be->alive && !be->disabled)
                     svc->tot_pri += be->priority;
             }
             if(ret_val = pthread_mutex_unlock(&svc->mut))
-                logmsg(LOG_WARNING, "do_resurect() unlock: %s", strerror(ret_val));
+                logmsg(LOG_DEBUG, "do_resurect() unlock: %s", strerror(ret_val));
         }
     }
 
@@ -1260,7 +1319,10 @@ do_resurect(void)
                 }
                 addr = &be->ha_addr;
             }
-            if(connect_nb(sock, addr, be->conn_to) == 0) {
+            
+            /* get a tag for logs with backend and service */
+			get_bk_and_srv_string( buf_log_tag, svc, be );
+            if(connect_nb(sock, addr, be->conn_to, buf_log_tag) == 0) {
                 be->resurrect = 1;
                 modified = 1;
             }
@@ -1269,19 +1331,18 @@ do_resurect(void)
         }
         if(modified) {
             if(ret_val = pthread_mutex_lock(&svc->mut))
-                logmsg(LOG_WARNING, "do_resurect() lock: %s", strerror(ret_val));
+                logmsg(LOG_DEBUG, "do_resurect() lock: %s", strerror(ret_val));
             svc->tot_pri = 0;
             for(be = svc->backends; be; be = be->next) {
                 if(be->resurrect) {
                     be->alive = 1;
-                    str_be(buf, MAXBUF - 1, be);
-                    logmsg(LOG_NOTICE, "BackEnd %s resurrect in farm: '%s', service: '%s'", buf, farmName, svc->name);
+                    logmsg(LOG_NOTICE, "%s backend resurrects", buf_log_tag);
                 }
                 if(be->alive && !be->disabled)
                     svc->tot_pri += be->priority;
             }
             if(ret_val = pthread_mutex_unlock(&svc->mut))
-                logmsg(LOG_WARNING, "do_resurect() unlock: %s", strerror(ret_val));
+                logmsg(LOG_DEBUG, "do_resurect() unlock: %s", strerror(ret_val));
         }
     }
     
