@@ -2,3 +2,16 @@ Makefile
 config.h
 config.log
 config.status
+apuntes.txt
+config.o
+dh512.h
+dh1024.h
+dh2048.h
+http.o
+pound
+pound.o
+poundctl
+poundctl.o
+svc.o
+dh2048.pem
+
