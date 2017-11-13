@@ -26,6 +26,9 @@
  */
 
 #include    "pound.h"
+#include    "pound_sync.h"
+#include    <execinfo.h>
+
 
 /* common variables */
 char        *user,              /* user to run as */
@@ -35,8 +38,8 @@ char        *user,              /* user to run as */
             *pid_name,          /* file to record pid in */
             *ctrl_name,         /* control socket name */
             *ctrl_user,         /* control socket username */
-            *ctrl_group;        /* control socket group name */
-
+            *ctrl_group,        /* control socket group name */
+            *sync_socket;
 long        ctrl_mode;          /* octal mode of the control socket */
 
 int         alive_to,           /* check interval for resurrection */
@@ -46,8 +49,8 @@ int         alive_to,           /* check interval for resurrection */
             print_log,          /* print log messages to stdout/stderr */
             grace,              /* grace period before shutdown */
             control_sock,       /* control socket */
-	    ignore_100;         /* Disable 100-continue */
-
+            ignore_100,         /* Disable 100-continue */
+            sync_is_enabled;       /*enable sync thread*/
 SERVICE     *services;          /* global services (if any) */
 
 LISTENER    *listeners;         /* all available listeners */
@@ -232,6 +235,29 @@ h_shut(const int sig)
         shut_down = 1;
 }
 
+void handler(int sig) {
+  void *array[100];
+  char **strings;
+  int j, nptrs;
+
+  // get void*'s for all entries on the stack
+  nptrs = backtrace(array, 10);
+  // print out all the frames to stderr
+  logmsg(LOG_ERR, "Error: signal %d:\n",sig);
+  strings = backtrace_symbols(array, nptrs);
+  if (strings == NULL) {
+          logmsg(LOG_ERR, "backtrace_symbols");
+          exit(EXIT_FAILURE);
+      }
+
+     for (j = 0; j < nptrs; j++)
+       logmsg(LOG_ERR, "backtrace_symbols: %s",strings[j]);
+     free(strings);
+     exit(EXIT_FAILURE);
+}
+
+
+
 /*
  * Pound: the reverse-proxy/load-balancer
  *
@@ -270,6 +296,7 @@ main(const int argc, char **argv)
     signal(SIGTERM, h_term);
     signal(SIGQUIT, h_term);
     signal(SIGPIPE, SIG_IGN);
+    signal(SIGSEGV, handler);   // install our handler
 
     srandom(getpid());
 
@@ -323,6 +350,7 @@ main(const int argc, char **argv)
 
     /* read config */
     config_parse(argc, argv);
+    set_objects_key_id();
 
     if(log_facility != -1)
         openlog("pound", LOG_CONS | LOG_NDELAY, LOG_DAEMON);
@@ -510,6 +538,11 @@ main(const int argc, char **argv)
                 exit(1);
             }
 
+            /* start pound session sync thread */
+
+            if(sync_is_enabled && init_pound_sync() == 0){
+                start_sync_thr();
+            }
             /* start the controlling thread (if needed) */
             if(control_sock >= 0 && pthread_create(&thr, &attr, thr_control, NULL)) {
                 logmsg(LOG_ERR, "create thr_control: %s - aborted", strerror(errno));
@@ -543,6 +576,13 @@ main(const int argc, char **argv)
                     }
                     if(ctrl_name != NULL)
                         (void)unlink(ctrl_name);
+                    if(sync_is_enabled)
+                      {
+                        logmsg(LOG_NOTICE, "closing sync thread");
+                        sleep(grace);
+                        stop_session_sync();
+
+                      }
                     exit(0);
                 }
                 for(lstn = listeners, i = 0; i < n_listeners; lstn = lstn->next, i++) {

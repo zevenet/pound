@@ -25,7 +25,8 @@
  * EMail: roseg@apsis.ch
  */
 
-#include    "pound.h"
+#include 	"svc.h"
+
 
 #ifndef LHASH_OF
 #define LHASH_OF(x) LHASH
@@ -36,11 +37,11 @@
  * Add a new key/content pair to a hash table
  * the table should be already locked
  */
-static void
-t_add(LHASH_OF(TABNODE) *const tab, const char *key, const void *content, const size_t cont_len)
+ void
+t_add(SERVICE *const srv, const char *key, const void *content, const size_t cont_len , unsigned long timestamp)
 {
     TABNODE *t, *old;
-
+    LHASH_OF(TABNODE) *const tab = srv->sessions;
     if((t = (TABNODE *)malloc(sizeof(TABNODE))) == NULL) {
         logmsg(LOG_WARNING, "t_add() content malloc");
         return;
@@ -57,7 +58,15 @@ t_add(LHASH_OF(TABNODE) *const tab, const char *key, const void *content, const 
         return;
     }
     memcpy(t->content, content, cont_len);
+    if(timestamp != 0)
+        t->last_acc = timestamp;
+    else
     t->last_acc = time(NULL);
+    
+    t->listener = srv->listener_key_id;
+    t->service = srv->key_id;
+    notify( SESS_ADD, srv->listener_key_id, srv->key_id, ((BACKEND*)t->content)->key_id ,t->key,t->content, (unsigned int)(t->last_acc));
+
 #if OPENSSL_VERSION_NUMBER >= 0x10000000L
     if((old = LHM_lh_insert(TABNODE, tab, t)) != NULL) {
 #else
@@ -76,19 +85,24 @@ t_add(LHASH_OF(TABNODE) *const tab, const char *key, const void *content, const 
  * returns the content in the parameter
  * side-effect: update the time of last access
  */
-static void *
-t_find(LHASH_OF(TABNODE) *const tab, char *const key)
+ void *
+t_find(SERVICE  * const srv, char *const key)
 {
     TABNODE t, *res;
-
+    LHASH_OF(TABNODE) *const tab = srv->sessions;
     t.key = key;
 #if OPENSSL_VERSION_NUMBER >= 0x10000000L
     if((res = (TABNODE *)LHM_lh_retrieve(TABNODE, tab, &t)) != NULL) {
 #else
     if((res = (TABNODE *)lh_retrieve(tab, &t)) != NULL) {
 #endif
-        res->last_acc = time(NULL);
-        return res->content;
+
+	   if(res->last_acc != time(NULL))
+	   {
+	   		res->last_acc = time(NULL);          
+	      	notify(SESS_UPDATE,srv->listener_key_id,srv->key_id,((BACKEND*)res->content)->key_id ,res->key,res->content, (unsigned int)(res->last_acc));
+	   }
+       return res->content;
     }
     return NULL;
 }
@@ -96,17 +110,19 @@ t_find(LHASH_OF(TABNODE) *const tab, char *const key)
 /*
  * Delete a key
  */
-static void
-t_remove(LHASH_OF(TABNODE) *const tab, char *const key)
+ void
+t_remove(SERVICE * const srv, char *const key)
 {
     TABNODE t, *res;
-
+    LHASH_OF(TABNODE) * tab = srv->sessions;
     t.key = key;
 #if OPENSSL_VERSION_NUMBER >= 0x10000000L
     if((res = LHM_lh_delete(TABNODE, tab, &t)) != NULL) {
 #else
     if((res = (TABNODE *)lh_delete(tab, &t)) != NULL) {
 #endif
+        notify(SESS_DELETE,srv->listener_key_id,srv->key_id,((BACKEND*)res->content)->key_id ,res->key,res->content,(unsigned int)(res->last_acc));
+
         free(res->key);
         free(res->content);
         free(res);
@@ -132,6 +148,7 @@ t_old_doall_arg(TABNODE *t, ALL_ARG *a)
 #else
         if((res = lh_delete(a->tab, t)) != NULL) {
 #endif
+            notify(SESS_DELETE,res->listener,res->service,((BACKEND*)res->content)->key_id ,res->key,res->content,(unsigned int)(res->last_acc));
             free(res->key);
             free(res->content);
             free(res);
@@ -178,6 +195,7 @@ t_cont_doall_arg(TABNODE *t, ALL_ARG *arg)
 #else
         if((res = lh_delete(arg->tab, t)) != NULL) {
 #endif
+            notify(SESS_DELETE,res->listener,res->service,((BACKEND*)res->content)->key_id ,res->key,res->content,(unsigned int)(res->last_acc));
             free(res->key);
             free(res->content);
             free(res);
@@ -685,7 +703,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
         addr2str(key, KEY_SIZE, from_host, 1);
         if(svc->sess_ttl < 0) {
             res = no_be? svc->emergency: hash_backend(svc->backends, svc->abs_pri, key);
-        } else if((vp = t_find(svc->sessions, key)) == NULL) {
+          } else if((vp = t_find(svc, key)) == NULL) {
             if(no_be)
                 res = svc->emergency;
             else {
@@ -696,7 +714,8 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                     logmsg(LOG_DEBUG, "service %s, Found BEKEY %s in headers. BEKEY for %s",svc->name, bekey, bk);
                     if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
                 } else res = rand_backend(svc->backends, random() % svc->tot_pri);
-                t_add(svc->sessions, key, &res, sizeof(res));
+
+                t_add(svc, key, &res, sizeof(res),0);
             }
         } else
             memcpy(&res, vp, sizeof(res));
@@ -706,7 +725,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
         if(get_REQUEST(key, svc, request)) {
             if(svc->sess_ttl < 0)
                 res = no_be? svc->emergency: hash_backend(svc->backends, svc->abs_pri, key);
-            else if((vp = t_find(svc->sessions, key)) == NULL) {
+            else if((vp = t_find(svc, key)) == NULL) {
                 if(no_be)
                     res = svc->emergency;
                 else {
@@ -717,7 +736,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                         logmsg(LOG_DEBUG, "service %s, Found BEKEY %s in headers. BEKEY for %s",svc->name, bekey, bk);
                         if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
                     } else res = rand_backend(svc->backends, random() % svc->tot_pri);
-                    t_add(svc->sessions, key, &res, sizeof(res));
+                    t_add(svc, key, &res, sizeof(res),0);
                 }
             } else
                 memcpy(&res, vp, sizeof(res));
@@ -730,7 +749,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
         if(get_HEADERS(key, svc, headers)) {
             if(svc->sess_ttl < 0)
                 res = no_be? svc->emergency: hash_backend(svc->backends, svc->abs_pri, key);
-            else if((vp = t_find(svc->sessions, key)) == NULL) {
+            else if((vp = t_find(svc, key)) == NULL) {
                 if(no_be)
                     res = svc->emergency;
                 else {
@@ -741,7 +760,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                         logmsg(LOG_DEBUG, "service %s, Found BEKEY %s in headers. BEKEY for %s",svc->name, bekey, bk);
                         if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
                     } else res = rand_backend(svc->backends, random() % svc->tot_pri);
-                    t_add(svc->sessions, key, &res, sizeof(res));
+                    t_add(svc, key, &res, sizeof(res),0);
                 }
             } else
                 memcpy(&res, vp, sizeof(res));
@@ -776,8 +795,8 @@ upd_session(SERVICE *const svc, char **const headers, BACKEND *const be)
     if(ret_val = pthread_mutex_lock(&svc->mut))
         logmsg(LOG_WARNING, "upd_session() lock: %s", strerror(ret_val));
     if(get_HEADERS(key, svc, headers))
-        if(t_find(svc->sessions, key) == NULL)
-            t_add(svc->sessions, key, &be, sizeof(be));
+        if(t_find(svc, key) == NULL)
+            t_add(svc, key, &be, sizeof(be),0);
     if(ret_val = pthread_mutex_unlock(&svc->mut))
         logmsg(LOG_WARNING, "upd_session() unlock: %s", strerror(ret_val));
     return;
@@ -1970,7 +1989,7 @@ thr_control(void *arg)
             }
             if(ret_val = pthread_mutex_lock(&svc->mut))
                 logmsg(LOG_WARNING, "thr_control() add session lock: %s", strerror(ret_val));
-            t_add(svc->sessions, cmd.key, &be, sizeof(be));
+            t_add(svc, cmd.key, &be, sizeof(be),0);
             if(ret_val = pthread_mutex_unlock(&svc->mut))
                 logmsg(LOG_WARNING, "thoriginalfiler_control() add session unlock: %s", strerror(ret_val));
             break;
@@ -1981,7 +2000,7 @@ thr_control(void *arg)
             }
             if(ret_val = pthread_mutex_lock(&svc->mut))
                 logmsg(LOG_WARNING, "thr_control() del session lock: %s", strerror(ret_val));
-            t_remove(svc->sessions, cmd.key);
+            t_remove(svc, cmd.key);
             if(ret_val = pthread_mutex_unlock(&svc->mut))
                 logmsg(LOG_WARNING, "thr_control() del session unlock: %s", strerror(ret_val));
             break;

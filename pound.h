@@ -25,6 +25,8 @@
  * EMail: roseg@apsis.ch
  */
 
+#ifndef POUND_H
+#define POUND_H
 #include    "config.h"
 #include    <stdio.h>
 #include    <math.h>
@@ -268,7 +270,8 @@ extern char *user,              /* user to run as */
             *pid_name,          /* file to record pid in */
             *ctrl_name,         /* control socket name */
             *ctrl_user,         /* control socket username */
-            *ctrl_group;        /* control socket group name */
+		    *ctrl_group,   /* control socket group name */
+		    *sync_socket;  /*session sync socket path*/
 
 extern long ctrl_mode;          /* octal mode of the control socket */
 
@@ -282,9 +285,10 @@ extern int  numthreads,         /* number of worker threads */
             print_log,          /* print log messages to stdout/stderr */
             grace,              /* grace period before shutdown */
             control_sock,       /* control socket */
-            ignore_100;		/* ignore header "Expect: 100-continue"*/
-				/* 1 Ignore header (Default)*/
-				/* 0 Manages header */
+		    ignore_100,        /* ignore header "Expect: 100-continue"*/
+						/* 1 Ignore header (Default)*/
+						/* 0 Manages header */
+		    sync_is_enabled;   /*session sync enabled*/
 
 extern regex_t  HEADER,     /* Allowed header */
                 CHUNK_HEAD, /* chunk header line */
@@ -344,9 +348,12 @@ typedef struct _backend {
     int                 disabled;   /* true if the back-end is disabled */
     int 				connections;
     struct _backend     *next;
+  	int 				key_id;
 }   BACKEND;
 
 typedef struct _tn {
+	int 		listener;
+    int 		service;
     char        *key;
     void        *content;
     time_t      last_acc;
@@ -363,6 +370,8 @@ DECLARE_LHASH_OF(TABNODE);
 
 /* service definition */
 typedef struct _service {
+    int 				key_id;
+    int 				listener_key_id;
     char                name[KEY_SIZE + 1]; /* symbolic name */
     MATCHER             *url,       /* request matcher */
                         *req_head,  /* required headers */
@@ -406,6 +415,7 @@ typedef struct _pound_ctx {
 
 /* Listener definition */
 typedef struct _listener {
+    int 				key_id;
     struct addrinfo     addr;               /* IPv4/6 address */
     int                 sock;               /* listening socket */
     POUND_CTX           *ctx;               /* CTX for SSL connections */
@@ -672,3 +682,4 @@ extern void *thr_timer(void *);
  * listens to client requests and calls the appropriate functions
  */
 extern void *thr_control(void *);
+#endif

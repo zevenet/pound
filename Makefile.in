@@ -23,7 +23,7 @@
 # Switzerland
 # EMail: roseg@apsis.ch
 
-CC=@PTHREAD_CC@
+CC=@PTHREAD_CC@ -g -rdynamic
 
 CFLAGS=-DF_CONF=\"@sysconfdir@/pound.cfg\" -DVERSION=\"@PACKAGE_VERSION@\" -DC_SSL=\"@C_SSL@\" -DC_T_RSA=\"@C_T_RSA@\" \
 	-DC_DH_LEN=\"@C_DH_LEN@\" -DC_MAXBUF=\"@C_MAXBUF@\" -DC_OWNER=\"@C_OWNER@\" -DC_GROUP=\"@C_GROUP@\" \
@@ -35,7 +35,7 @@ exec_prefix=@exec_prefix@
 
 # Configuration file default; if none, look at config.c for default!
 
-OBJS=pound.o http.o config.o svc.o
+OBJS=pound.o http.o config.o svc.o pound_sync.o
 
 all:	pound poundctl pound.8 dh2048.pem
 
@@ -51,7 +51,10 @@ dh512.h:
 dh@C_DH_LEN@.h:
 		openssl dhparam -5 -C -noout @C_DH_LEN@ > dh@C_DH_LEN@.h
 
-svc.o:		svc.c dh512.h dh@C_DH_LEN@.h
+pound_sync.o:	pound_sync.c pound_sync.h pound.h svc.h pound_sync_enum.h
+		${CC} -pthread -c -o pound_sync.o pound_sync.c
+
+svc.o:		svc.h svc.c pound_sync_enum.h dh512.h dh@C_DH_LEN@.h
 		${CC} ${CFLAGS} -c -o svc.o svc.c
 
 dh2048.pem:
@@ -68,7 +71,7 @@ install:	all
 		@INSTALL@ -o @I_OWNER@ -g @I_GRP@ -m 644 poundctl.8 ${DESTDIR}@mandir@/man8/poundctl.8
 
 clean:
-		rm -f pound $(OBJS) poundctl poundctl.o
+		rm -f pound $(OBJS) poundctl poundctl.o pound_sync.o
 		rm -f dh512.h dh@C_DH_LEN@.h
 
 distclean:	clean

@@ -1861,8 +1861,11 @@ config_parse(const int argc, char **const argv)
     conf_name = F_CONF;
     pid_name = F_PID;
 
-    while((c_opt = getopt(argc, argv, "f:cvVp:")) > 0)
+    while((c_opt = getopt(argc, argv, "sf:cvVp:")) > 0)
         switch(c_opt) {
+        case 's':
+            sync_is_enabled = 1;
+            break;
         case 'f':
             conf_name = optarg;
             break;
