@@ -17,10 +17,10 @@ typedef struct _pound_action {
 static int num_connections;
 static int conn_sock;
 static int sync_listen_fd;
-static pthread_mutex_t send_lock;
+static volatile pthread_mutex_t send_lock;
 static pthread_t receive_thread, sync_thread;
-static int sync_is_running;
-static int listen_mode;
+static volatile int sync_is_running;
+static volatile int listen_mode;
 char *serialize(POUND_ACTION *action, unsigned int *out_size);
 POUND_ACTION *deserialize(char *data, const int data_size, int *data_used);
 void free_action(POUND_ACTION *action);
@@ -30,8 +30,8 @@ int send_action(POUND_ACTION *action);
 void set_objects_key_id();
 static void t_send_arg(TABNODE *t, SERVICE *srv);
 void handle_sync_request(int fd);
-void notify(ACTION_TYPE action, int listener, int service, int backend,
-            char *key, void *content, unsigned int last_access);
+void notify(ACTION_TYPE action, int listener, int service, char *key,
+            void *content, unsigned int last_access);
 void receive_task();
 void start_sync_thr(void);
 void stop_session_sync(void);

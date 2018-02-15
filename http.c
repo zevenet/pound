@@ -849,17 +849,17 @@ do_http(thr_arg *arg)
         /* check that the requested URL still fits the old back-end (if any) */
         if((svc = get_service(lstn, url, &headers[1])) == NULL) {
             addr2str(caddr, MAXBUF - 1, &from_host, 1);
-            logmsg(LOG_NOTICE, "%s (%lx) e503 no service \"%s\" from %s %s",buf_log_tag, pthread_self(), request, caddr, v_host[0]? v_host: "-");
+            logmsg(LOG_NOTICE, "(%lx) e503 no service \"%s\" from %s %s", pthread_self(), request, caddr, v_host[0]? v_host: "-");
             err_reply(cl, h503, lstn->err503);
             free_headers(headers);
             clean_all();
             return;
         }
 
-        /* get a backend of the service */ 
-        if((backend = get_backend(svc, &from_host, url, &headers[1])) == NULL) {
+        /* get a backend of the service */
+        if((backend = get_backend(svc, &from_host, url, &headers[1],lstn->log_level)) == NULL) {
             addr2str(caddr, MAXBUF - 1, &from_host, 1);
-            logmsg(LOG_NOTICE, "%s (%lx) e503 no back-end \"%s\" from %s %s", buf_log_tag, pthread_self(), request, caddr, v_host[0]? v_host: "-");
+            logmsg(LOG_NOTICE, "service %s, (%lx) e503 no back-end \"%s\" from %s %s", svc->name, pthread_self(), request, caddr, v_host[0]? v_host: "-");
             err_reply(cl, h503, lstn->err503);
             free_headers(headers);
             clean_all();
@@ -918,7 +918,7 @@ do_http(thr_arg *arg)
                  * ...but make sure we don't get into a loop with the same back-end
                  */
                 old_backend = backend;
-                if((backend = get_backend(svc, &from_host, url, &headers[1])) == NULL || backend == old_backend) {
+                if((backend = get_backend(svc, &from_host, url, &headers[1],lstn->log_level)) == NULL || backend == old_backend) {
                     addr2str(caddr, MAXBUF - 1, &from_host, 1);
                     logmsg(LOG_NOTICE, "%s (%lx) e503 no back-end \"%s\" from %s", buf_log_tag, pthread_self(), request, caddr);
                     err_reply(cl, h503, lstn->err503);

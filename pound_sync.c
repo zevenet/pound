@@ -50,7 +50,7 @@ char *serialize(POUND_ACTION *action, unsigned int *out_size) {
         pkt_len += content_len;
     }
   *out_size = 0;
-  char *outbuffer = (char *)calloc(pkt_len, sizeof(char *));
+  char *outbuffer = (char *)calloc(pkt_len + 1, sizeof(char ));
   outbuffer[(*out_size)++] = 0xef;
   outbuffer[(*out_size)++] = 0xab;
   outbuffer[(*out_size)++] = 6; // packet type
@@ -421,7 +421,7 @@ int process_action(POUND_ACTION *action) {
   return 1;
 }
 
-void notify(ACTION_TYPE action, int listener, int service, int backend,
+void notify(ACTION_TYPE action, int listener, int service,
             char *key, void *content, unsigned int last_access) {
   if (listen_mode == 0 || sync_is_running == 0 || num_connections < 1)
     return;
@@ -534,7 +534,7 @@ void handle_sync_request(int fd)
 static void
 t_send_arg(TABNODE *t, SERVICE* srv)
 {
-  notify( SESS_ADD, srv->listener_key_id, srv->key_id, ((BACKEND*)t->content)->key_id ,
+  notify( SESS_ADD, srv->listener_key_id, srv->key_id,
           t->key,t->content, (unsigned int)(t->last_acc));
   return;
 }

@@ -558,7 +558,8 @@ extern SERVICE  *get_service(const LISTENER *, const char *, char **const);
 /*
  * Find the right back-end for a request
  */
-extern BACKEND  *get_backend(SERVICE *const, const struct addrinfo *, const char *, char **const);
+extern BACKEND *get_backend(SERVICE *const, const struct addrinfo *,
+                            const char *, char **const,int);
 
 /*
  * Search for a host name, return the addrinfo for it

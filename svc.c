@@ -61,11 +61,12 @@ t_add(SERVICE *const srv, const char *key, const void *content, const size_t con
     if(timestamp != 0)
         t->last_acc = timestamp;
     else
-    t->last_acc = time(NULL);
+    	t->last_acc = time(NULL);
     
     t->listener = srv->listener_key_id;
     t->service = srv->key_id;
-    notify( SESS_ADD, srv->listener_key_id, srv->key_id, ((BACKEND*)t->content)->key_id ,t->key,t->content, (unsigned int)(t->last_acc));
+    if(sync_is_enabled)
+        notify( SESS_ADD, srv->listener_key_id, srv->key_id, t->key,t->content, (unsigned int)(t->last_acc));
 
 #if OPENSSL_VERSION_NUMBER >= 0x10000000L
     if((old = LHM_lh_insert(TABNODE, tab, t)) != NULL) {
@@ -97,12 +98,13 @@ t_find(SERVICE  * const srv, char *const key)
     if((res = (TABNODE *)lh_retrieve(tab, &t)) != NULL) {
 #endif
 
-	   if(res->last_acc != time(NULL))
-	   {
-	   		res->last_acc = time(NULL);          
-	      	notify(SESS_UPDATE,srv->listener_key_id,srv->key_id,((BACKEND*)res->content)->key_id ,res->key,res->content, (unsigned int)(res->last_acc));
-	   }
-       return res->content;
+       if(res->last_acc != time(NULL))
+       {
+           res->last_acc = time(NULL);
+           if(sync_is_enabled)
+              notify(SESS_UPDATE,srv->listener_key_id,srv->key_id,res->key,res->content, (unsigned int)(res->last_acc));
+       }
+        return res->content;
     }
     return NULL;
 }
@@ -121,7 +123,8 @@ t_remove(SERVICE * const srv, char *const key)
 #else
     if((res = (TABNODE *)lh_delete(tab, &t)) != NULL) {
 #endif
-        notify(SESS_DELETE,srv->listener_key_id,srv->key_id,((BACKEND*)res->content)->key_id ,res->key,res->content,(unsigned int)(res->last_acc));
+        if(sync_is_enabled)
+            notify(SESS_DELETE,srv->listener_key_id,srv->key_id,res->key,res->content,(unsigned int)(res->last_acc));
 
         free(res->key);
         free(res->content);
@@ -148,7 +151,8 @@ t_old_doall_arg(TABNODE *t, ALL_ARG *a)
 #else
         if((res = lh_delete(a->tab, t)) != NULL) {
 #endif
-            notify(SESS_DELETE,res->listener,res->service,((BACKEND*)res->content)->key_id ,res->key,res->content,(unsigned int)(res->last_acc));
+            if(sync_is_enabled)
+                notify(SESS_DELETE,res->listener,res->service,res->key,res->content,(unsigned int)(res->last_acc));
             free(res->key);
             free(res->content);
             free(res);
@@ -195,7 +199,8 @@ t_cont_doall_arg(TABNODE *t, ALL_ARG *arg)
 #else
         if((res = lh_delete(arg->tab, t)) != NULL) {
 #endif
-            notify(SESS_DELETE,res->listener,res->service,((BACKEND*)res->content)->key_id ,res->key,res->content,(unsigned int)(res->last_acc));
+            if(sync_is_enabled)
+              notify(SESS_DELETE,res->listener,res->service,res->key,res->content,(unsigned int)(res->last_acc));
             free(res->key);
             free(res->content);
             free(res);
@@ -672,13 +677,13 @@ hash_backend(BACKEND *be, int abs_pri, char *key)
  * Find the right back-end for a request
  */
 BACKEND *
-get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *request, char **const headers)
+get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *request, char **const headers, int listener_log_level)
 {
     BACKEND     *res;
     char        key[KEY_SIZE + 1];
     char        bekey[KEY_SIZE + 1];
-    char 		bk[MAXBUF];
-    int         	ret_val, no_be;
+    char        bk[MAXBUF];
+    int         ret_val, no_be;
     void        *vp;
 
     if(ret_val = pthread_mutex_lock(&svc->mut))
@@ -693,10 +698,18 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
         /* choose one back-end randomly */
         if (no_be) res = svc->emergency;
         else if (get_bekey_from_HEADERS(bekey, svc, headers)) {
-			res = get_backend_by_key(svc->backends, bekey);
-			str_be(bk, MAXBUF - 1, res);
-            logmsg(LOG_DEBUG, "service %s, Found BEKEY %s in headers. BEKEY for %s",svc->name, bekey, bk);
-            if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+              res = get_backend_by_key(svc->backends, bekey);
+              if (res==NULL || !res->alive ){
+                  res = rand_backend(svc->backends, random() % svc->tot_pri);
+                  if(res != NULL && listener_log_level > 1){
+                      str_be(bk, MAXBUF - 1, res);
+                      logmsg(LOG_DEBUG, "service %s, No backend found for BEKEY %s found in headers, assigned backend %s",svc->name, bekey, bk);
+                    }
+                } else if(listener_log_level > 1) {
+                      str_be(bk, MAXBUF - 1, res);
+                      logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                }
+
         } else res = rand_backend(svc->backends, random() % svc->tot_pri);
         break;
     case SESS_IP:
@@ -710,9 +723,16 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                 /* no session yet - create one */
                 if (get_bekey_from_HEADERS(bekey, svc, headers)) {
                     res = get_backend_by_key(svc->backends, bekey);
-                    str_be(bk, MAXBUF - 1, res);
-                    logmsg(LOG_DEBUG, "service %s, Found BEKEY %s in headers. BEKEY for %s",svc->name, bekey, bk);
-                    if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                    if (res==NULL || !res->alive ){
+                        res = rand_backend(svc->backends, random() % svc->tot_pri);
+                        if(res != NULL &&  listener_log_level > 1){
+                            str_be(bk, MAXBUF - 1, res);
+                            logmsg(LOG_DEBUG, "service %s, No backend found for BEKEY %s found in headers, assigned backend %s",svc->name, bekey, bk);
+                          }
+                      } else if(listener_log_level > 1) {
+                            str_be(bk, MAXBUF - 1, res);
+                            logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                      }
                 } else res = rand_backend(svc->backends, random() % svc->tot_pri);
 
                 t_add(svc, key, &res, sizeof(res),0);
@@ -732,9 +752,18 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                     /* no session yet - create one */
                     if (get_bekey_from_HEADERS(bekey, svc, headers)) {
                         res = get_backend_by_key(svc->backends, bekey);
-                        str_be(bk, MAXBUF - 1, res);
-                        logmsg(LOG_DEBUG, "service %s, Found BEKEY %s in headers. BEKEY for %s",svc->name, bekey, bk);
-                        if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                        if (res==NULL || !res->alive ){
+                            res = rand_backend(svc->backends, random() % svc->tot_pri);
+                            if(res != NULL && listener_log_level > 1){
+                                str_be(bk, MAXBUF - 1, res);
+                                logmsg(LOG_DEBUG, "service %s, No backend found for BEKEY %s found in headers, assigned backend %s",svc->name, bekey, bk);
+                              }
+                        } else if(listener_log_level > 1) {
+                              str_be(bk, MAXBUF - 1, res);
+                              logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                          }
+
+
                     } else res = rand_backend(svc->backends, random() % svc->tot_pri);
                     t_add(svc, key, &res, sizeof(res),0);
                 }
@@ -756,9 +785,16 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                     /* no session yet - create one */
                     if (get_bekey_from_HEADERS(bekey, svc, headers)) {
                         res = get_backend_by_key(svc->backends, bekey);
-                        str_be(bk, MAXBUF - 1, res);
-                        logmsg(LOG_DEBUG, "service %s, Found BEKEY %s in headers. BEKEY for %s",svc->name, bekey, bk);
-                        if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                        if (res==NULL || !res->alive ){
+                            res = rand_backend(svc->backends, random() % svc->tot_pri);
+                            if(res != NULL && listener_log_level > 1){
+                                str_be(bk, MAXBUF - 1, res);
+                                logmsg(LOG_DEBUG, "service %s, No backend found for BEKEY %s found in headers, assigned backend %s",svc->name, bekey, bk);
+                              }
+                          } else if(listener_log_level > 1) {
+                                str_be(bk, MAXBUF - 1, res);
+                                logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                          }
                     } else res = rand_backend(svc->backends, random() % svc->tot_pri);
                     t_add(svc, key, &res, sizeof(res),0);
                 }
@@ -768,9 +804,16 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
             if (no_be) res = svc->emergency;
             else if (get_bekey_from_HEADERS(bekey, svc, headers)) {
                 res = get_backend_by_key(svc->backends, bekey);
-                str_be(bk, MAXBUF - 1, res);
-                logmsg(LOG_DEBUG, "service %s, Found BEKEY %s in headers. BEKEY for %s",svc->name, bekey, bk);
-                if (res==NULL || !res->alive ) res = rand_backend(svc->backends, random() % svc->tot_pri); else logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                if (res==NULL || !res->alive || res->disabled ){
+                    res = rand_backend(svc->backends, random() % svc->tot_pri);
+                    if(res != NULL && listener_log_level > 1){
+                        str_be(bk, MAXBUF - 1, res);
+                        logmsg(LOG_DEBUG, "service %s, No backend found for BEKEY %s found in headers, assigned backend %s",svc->name, bekey, bk);
+                      }
+                  } else if(listener_log_level > 1){
+                        str_be(bk, MAXBUF - 1, res);
+                        logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                  }
             } else res = rand_backend(svc->backends, random() % svc->tot_pri);
         }
         break;
