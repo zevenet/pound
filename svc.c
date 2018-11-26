@@ -786,7 +786,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
         if (no_be) res = svc->emergency;
         else if (get_bekey_from_HEADERS(bekey, svc, headers)) {
               res = get_backend_by_key(svc->backends, bekey);
-              if (res==NULL || !res->alive ){
+              if (res==NULL || !res->alive || res->disabled){
                   res = rand_backend(svc->backends, random() % svc->tot_pri);
                   if(res != NULL && listener_log_level > 1){
                       str_be(bk, MAXBUF - 1, res);
@@ -794,7 +794,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                     }
                 } else if(listener_log_level > 1) {
                       str_be(bk, MAXBUF - 1, res);
-                      logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                      logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey %s",svc->name,bk, bekey);
                 }
 
         } else res = rand_backend(svc->backends, random() % svc->tot_pri);
@@ -810,7 +810,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                 /* no session yet - create one */
                 if (get_bekey_from_HEADERS(bekey, svc, headers)) {
                     res = get_backend_by_key(svc->backends, bekey);
-                    if (res==NULL || !res->alive ){
+                    if (res==NULL || !res->alive || res->disabled){
                         res = rand_backend(svc->backends, random() % svc->tot_pri);
                         if(res != NULL &&  listener_log_level > 1){
                             str_be(bk, MAXBUF - 1, res);
@@ -818,7 +818,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                           }
                       } else if(listener_log_level > 1) {
                             str_be(bk, MAXBUF - 1, res);
-                            logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                            logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey %s",svc->name,bk, bekey);
                       }
                 } else res = rand_backend(svc->backends, random() % svc->tot_pri);
 
@@ -839,7 +839,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                     /* no session yet - create one */
                     if (get_bekey_from_HEADERS(bekey, svc, headers)) {
                         res = get_backend_by_key(svc->backends, bekey);
-                        if (res==NULL || !res->alive ){
+                        if (res==NULL || !res->alive || res->disabled ){
                             res = rand_backend(svc->backends, random() % svc->tot_pri);
                             if(res != NULL && listener_log_level > 1){
                                 str_be(bk, MAXBUF - 1, res);
@@ -847,7 +847,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                               }
                         } else if(listener_log_level > 1) {
                               str_be(bk, MAXBUF - 1, res);
-                              logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                              logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey %s",svc->name,bk, bekey);
                           }
 
 
@@ -872,7 +872,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                     /* no session yet - create one */
                     if (get_bekey_from_HEADERS(bekey, svc, headers)) {
                         res = get_backend_by_key(svc->backends, bekey);
-                        if (res==NULL || !res->alive ){
+                        if (res==NULL || !res->alive || res->disabled){
                             res = rand_backend(svc->backends, random() % svc->tot_pri);
                             if(res != NULL && listener_log_level > 1){
                                 str_be(bk, MAXBUF - 1, res);
@@ -880,7 +880,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                               }
                           } else if(listener_log_level > 1) {
                                 str_be(bk, MAXBUF - 1, res);
-                                logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                                logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey %s",svc->name,bk, bekey);
                           }
                     } else res = rand_backend(svc->backends, random() % svc->tot_pri);
                     t_add(svc, key, &res, sizeof(res),0);
@@ -899,7 +899,7 @@ get_backend(SERVICE *const svc, const struct addrinfo *from_host, const char *re
                       }
                   } else if(listener_log_level > 1){
                         str_be(bk, MAXBUF - 1, res);
-                        logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey",svc->name,bk);
+                        logmsg(LOG_DEBUG, "service %s, found matching backend %s by bekey %s",svc->name,bk , bekey);
                   }
             } else res = rand_backend(svc->backends, random() % svc->tot_pri);
         }
