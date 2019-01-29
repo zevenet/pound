@@ -310,6 +310,7 @@ extern int numthreads, /* number of worker threads */
     sync_is_enabled;   /*session sync enabled*/
 
 extern regex_t HEADER, /* Allowed header */
+    CONN_UPGRD, /* upgrade in connection header */
     CHUNK_HEAD,        /* chunk header line */
     RESP_SKIP,         /* responses for which we skip response */
     RESP_IGN,          /* responses for which we ignore content */
@@ -367,6 +368,7 @@ typedef struct _backend {
   int priority;            /* priority */
   int to;                  /* read/write time-out */
   int conn_to;             /* connection time-out */
+  int ws_to;               /* websocket time-out */
   struct addrinfo ha_addr; /* HA address/port */
   char *url;               /* for redirectors */
   int redir_req; /* 0 - redirect is absolute, 1 - the redirect should include
@@ -515,6 +517,7 @@ typedef enum {
 #define HEADER_DESTINATION 10
 #define HEADER_EXPECT 11
 #define HEADER_STRICT_TRANSPORT_SECURITY 12
+#define HEADER_UPGRADE              13
 
 /* control request stuff */
 typedef enum {
