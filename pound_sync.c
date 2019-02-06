@@ -530,6 +530,9 @@ void set_objects_key_id() {
     }
 }
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+IMPLEMENT_LHASH_DOALL_ARG(TABNODE,SERVICE);
+#endif
 
 void handle_sync_request(int fd)
 {
@@ -549,7 +552,11 @@ void handle_sync_request(int fd)
           svc->key_id = n_svc++;
           svc->listener_key_id = lstn->key_id;
           n_bck = 0;
-#if OPENSSL_VERSION_NUMBER >= 0x10000000L
+
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+          //OPENSSL_LH_doall_arg((OPENSSL_LHASH *)svc->sessions,(OPENSSL_LH_DOALL_FUNCARG)t_send_arg, svc);
+          lh_TABNODE_doall_SERVICE(svc->sessions, t_send_arg, svc);
+#elif OPENSSL_VERSION_NUMBER >= 0x10000000L
           LHM_lh_doall_arg(TABNODE, svc->sessions,t_send_arg, SERVICE, svc);
 #else
           lh_doall_arg(svc->sessions, LHASH_DOALL_ARG_FN(t_send_arg), &svc);

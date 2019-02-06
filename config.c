@@ -255,6 +255,16 @@ conf_fgets(char *buf, const int max)
     }
 }
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+# define general_name_string(n) \
+	strndup(ASN1_STRING_get0_data(n->d.dNSName),	\
+	        ASN1_STRING_length(n->d.dNSName) + 1)
+#else
+# define general_name_string(n) \
+	strndup(ASN1_STRING_data(n->d.dNSName),	\
+	       ASN1_STRING_length(n->d.dNSName) + 1)
+#endif
+
 unsigned char **
 get_subjectaltnames(X509 *x509, unsigned int *count)
 {
@@ -726,7 +736,9 @@ parse_service(const char *svc_name)
     pthread_mutex_init(&res->mut, NULL);
     if(svc_name)
         strncpy(res->name, svc_name, KEY_SIZE);
-#if OPENSSL_VERSION_NUMBER >= 0x10000000L
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+    if((res->sessions = lh_TABNODE_new(t_hash, t_cmp)) == NULL)    
+#elif OPENSSL_VERSION_NUMBER >= 0x10000000L
     if((res->sessions = LHM_lh_new(TABNODE, t)) == NULL)
 #else
     if((res->sessions = lh_new(LHASH_HASH_FN(t_hash), LHASH_COMP_FN(t_cmp))) == NULL)

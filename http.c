@@ -511,40 +511,49 @@ log_bytes(char *res, const LONG cnt)
 
 /* Cleanup code. This should really be in the pthread_cleanup_push, except for bugs in some implementations */
 // if(count_backend->connections > 0)
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+# define clear_error()
+#elif OPENSSL_VERSION_NUMBER >= 0x10000000L
+# define clear_error() \
+    if(ssl != NULL) { ERR_clear_error(); ERR_remove_thread_state(NULL); }
+#else
+# define clear_error() \
+    if(ssl != NULL) { ERR_clear_error(); ERR_remove_state(0); }
+#endif
+
 #define clean_all() {   \
     if(flagCount) {decrease_backend_conn(cur_backend); } \
     if(ssl != NULL) { BIO_ssl_shutdown(cl); } \
     if(be != NULL) { BIO_flush(be); BIO_reset(be); BIO_free_all(be); be = NULL; } \
     if(cl != NULL) { BIO_flush(cl); BIO_reset(cl); BIO_free_all(cl); cl = NULL; } \
     if(x509 != NULL) { X509_free(x509); x509 = NULL; } \
-    if(ssl != NULL) { ERR_clear_error(); ERR_remove_state(0); } \
     if(body_buff != NULL) {free(body_buff); body_buff = NULL; } \
     waf_del_transaction(&modsec_transaction); \
+    clear_error(); \
 }
-
 
 void
 increase_backend_conn(BACKEND *backend)
 {
-	int ret_val;
+    int ret_val;
 
-	if(ret_val = pthread_mutex_lock(&backend->mut))
-		logmsg(LOG_WARNING, "increase_backend_conn() lock: %s", strerror(ret_val));
-	backend->connections++;
-	if(ret_val = pthread_mutex_unlock(&backend->mut))
-		logmsg(LOG_WARNING, "increase_backend_conn() unlock: %s", strerror(ret_val));
+    if(ret_val = pthread_mutex_lock(&backend->mut))
+        logmsg(LOG_WARNING, "increase_backend_conn() lock: %s", strerror(ret_val));
+    backend->connections++;
+    if(ret_val = pthread_mutex_unlock(&backend->mut))
+        logmsg(LOG_WARNING, "increase_backend_conn() unlock: %s", strerror(ret_val));
 }
 
 void
 decrease_backend_conn(BACKEND *backend)
 {
-	int ret_val;
+    int ret_val;
 
-	if(ret_val = pthread_mutex_lock(&backend->mut))
-		logmsg(LOG_WARNING, "increase_backend_conn() lock: %s", strerror(ret_val));
-	backend->connections--;
-	if(ret_val = pthread_mutex_unlock(&backend->mut))
-		logmsg(LOG_WARNING, "increase_backend_conn() unlock: %s", strerror(ret_val));
+    if(ret_val = pthread_mutex_lock(&backend->mut))
+        logmsg(LOG_WARNING, "increase_backend_conn() lock: %s", strerror(ret_val));
+    backend->connections--;
+    if(ret_val = pthread_mutex_unlock(&backend->mut))
+        logmsg(LOG_WARNING, "increase_backend_conn() unlock: %s", strerror(ret_val));
 }
 
 
@@ -1309,8 +1318,8 @@ do_http(thr_arg *arg)
         //headers = NULL;            /* headers will be read if exp_cont seen */
         read_cl_body = 1;          /* will be reset to 0 if exp_cont and '100 Continue' not rx'd, to skip */
 
-	if (exp_cont) {              /* 'Expect: 100-continue' header seen! */
-		logmsg(LOG_INFO, "Managing connection Expect 100-continue");
+    if (exp_cont) {              /* 'Expect: 100-continue' header seen! */
+        logmsg(LOG_INFO, "Managing connection Expect 100-continue");
 
                 /* flush to the back-end */
         if(cur_backend->be_type == 0 && BIO_flush(be) != 1) {
@@ -1627,19 +1636,19 @@ do_http(thr_arg *arg)
             break;
         }
 
-	/* we'll arrive directly here if '100 Continue' was expected but not received; headers will be valid then */
-	/* get the response */
-	for(skip = 1; skip;) {
-	    if((headers = get_headers(be, cl, lstn)) == NULL) {
-		str_be(buf, MAXBUF - 1, cur_backend);
-		end_req = cur_time();
-		addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
-		logmsg(LOG_NOTICE, "%s (%lx) e500 for %s response error read from %s/%s: %s (%.3f secs)",
-		    buf_log_tag, pthread_self(), caddr, buf, request, strerror(errno), (end_req - start_req) / 1000000.0);
-		err_reply(cl, h500, lstn->err500);
-		clean_all();
-		return;
-	    }
+    /* we'll arrive directly here if '100 Continue' was expected but not received; headers will be valid then */
+    /* get the response */
+    for(skip = 1; skip;) {
+        if((headers = get_headers(be, cl, lstn)) == NULL) {
+        str_be(buf, MAXBUF - 1, cur_backend);
+        end_req = cur_time();
+        addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
+        logmsg(LOG_NOTICE, "%s (%lx) e500 for %s response error read from %s/%s: %s (%.3f secs)",
+            buf_log_tag, pthread_self(), caddr, buf, request, strerror(errno), (end_req - start_req) / 1000000.0);
+        err_reply(cl, h500, lstn->err500);
+        clean_all();
+        return;
+        }
 
             strncpy(response, headers[0], MAXBUF);
             be_11 = (response[7] == '1');
