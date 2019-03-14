@@ -190,9 +190,10 @@ int send_action(POUND_ACTION *action) {
            }else if (count == (size - sent))
                 break;
            else if (count < 0) {
-//              if(count == EPIPE){
-//                sync_is_running = 0;
-//              }
+              //if(count == EPIPE){
+              sync_is_running = 0;
+              close(conn_sock);
+              //}
               logmsg(LOG_ERR, "sync_thread; send() failed: %s", strerror(errno));
               res = -1;
               break;
@@ -236,6 +237,21 @@ void receive_task() {
         }
       for (i = 0; i < nfds; ++i) {
           fd = events[i].data.fd;
+          if (events[i].events & (EPOLLRDHUP | EPOLLHUP)) { //detect remote discontection
+              buffer_size = 0;
+              num_connections =0;
+              logmsg(LOG_NOTICE, "sync_thread; peer connection closed: %s",
+                     strerror(errno));
+              if (epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL) < 0)
+                logmsg(LOG_ERR, "sync_thread; epoll_ctl() failed: %s",
+                       strerror(errno));
+              close(fd);
+              continue;
+            }
+          if (events[i].events & EPOLLERR) {
+              logmsg(LOG_ERR, "sync_thread; epoll error");
+              continue;
+            }
           if (fd == sync_listen_fd) {
               if ((conn_sock = accept(fd, NULL, NULL)) > 0) {
                   int one = 1;
@@ -255,7 +271,7 @@ void receive_task() {
                              strerror(errno));
                       continue;
                     }
-                  ev.events = EPOLLIN | EPOLLET;
+                  ev.events = EPOLLIN | EPOLLET | EPOLLRDHUP | EPOLLHUP;
                   ev.data.fd = conn_sock;
                   if (epoll_ctl(epfd, EPOLL_CTL_ADD, conn_sock, &ev) == -1) {
                       logmsg(LOG_ERR, "sync_thread; epoll_ctl: add: %s", strerror(errno));
@@ -283,21 +299,15 @@ void receive_task() {
 
                   buffer_size += count;
                 }
-
-              if (count == -1 && errno != EAGAIN) {
-                  buffer_size = 0;
-                  logmsg(LOG_ERR, "sync_thread; recv() failed: %s", strerror(errno));
-                  continue;
-                } else if (count == 0) {
+              if (count == -1 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
+                  //something bad happend, close remote connection
                   buffer_size = 0;
                   num_connections =0;
-                  logmsg(LOG_NOTICE, "sync_thread; peer connection closed: %s",
-                         strerror(errno));
-                  if (epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL) < 0)
-                    logmsg(LOG_ERR, "sync_thread; epoll_ctl() failed: %s",
-                           strerror(errno));
                   close(fd);
+                  logmsg(LOG_ERR, "sync_thread; recv() failed: %s", strerror(errno));
                   continue;
+              } else if (count == 0) {
+                  //remote closed the connection, we'll  wait for EPOLLRDHUP
               }
               if (buffer_size > 0) {
                   while (buffer_size > 0) {
