@@ -47,7 +47,7 @@
 t_add(SERVICE *const srv, const char *key, const void *content, const size_t cont_len , unsigned long timestamp)
 {
     if(strlen(key) <= 0){
-        logmsg(LOG_DEBUG, "Session key not valid; Key %s len %d",key, strlen(key));
+        logmsg(LOG_WARNING, "Session key not valid; Key %s len %d",key, strlen(key));
         return;
     }
     TABNODE *t, *old;
