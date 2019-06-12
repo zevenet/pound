@@ -2098,6 +2098,7 @@ thr_control(void *arg)
             break;
 #if WAF
         case REL_WAF:
+            logmsg(LOG_INFO, "Reloading WAF rules");
             config_parse_waf(1);
             waf_reload_rules();
             break;

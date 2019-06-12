@@ -580,8 +580,8 @@ MAKEFLAGS=
 # Identity of this package.
 PACKAGE_NAME='pound'
 PACKAGE_TARNAME='pound'
-PACKAGE_VERSION='pound2.8a+zevenet5'
-PACKAGE_STRING='pound 2.8a+zevenet5'
+PACKAGE_VERSION='pound2.8a+zevenet'
+PACKAGE_STRING='pound 2.8a+zevenet'
 PACKAGE_BUGREPORT='roseg@apsis.ch'
 PACKAGE_URL=''
 

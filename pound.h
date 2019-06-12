@@ -680,7 +680,7 @@ extern int connect_nb(const int, const struct addrinfo *, const int, char *);
  */
 extern void config_parse(const int, char **const);
 
-extern void onfig_parse_waf(void);
+extern void config_parse_waf(int);
 
 /*
  * RSA ephemeral keys: how many and how often

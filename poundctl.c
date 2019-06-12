@@ -371,7 +371,7 @@ main(const int argc, char **argv)
       cmd.cmd = REL_WAF;
 
     sock = get_sock(sock_name);
-    write(sock, &cmd, sizeof(cmd));
+    write(sock, (void *)&cmd, sizeof(cmd));
 
     if (!is_set) {
         int n;
