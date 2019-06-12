@@ -1089,11 +1089,9 @@ do_http(thr_arg *arg)
           waf_action = waf_resolution(modsec_transaction, &waf_code, &buf, buf_log_tag);
           if (waf_action != ALLOW) {
               if (waf_action == BLOCK)
-              err_reply(cl, h403, "replied forbidden");
-            //   err_reply(cl, h503, lstn->err503);
-
-            else if (waf_action == REDIRECTION)
-              redirect_reply(cl, buf, waf_code);
+                err_reply(cl, h403, "replied forbidden");
+              else if (waf_action == REDIRECTION)
+                redirect_reply(cl, buf, waf_code);
 
             // close conn
             logmsg(LOG_INFO, "%s (%lx) WAF denied a request from %s", buf_log_tag, pthread_self(), ip_ori);
@@ -1751,9 +1749,8 @@ do_http(thr_arg *arg)
               waf_action = waf_resolution(modsec_transaction,&waf_code, &buf, buf_log_tag);
               if (waf_action != ALLOW) {
                 // Reply error
-                  if (waf_action == BLOCK)
+                if (waf_action == BLOCK)
                   err_reply(cl, h403, "replied forbidden");
-                //   err_reply(cl, h503, lstn->err503);
 
                 else if (waf_action == REDIRECTION)
                   redirect_reply(cl, buf, waf_code);
@@ -1765,9 +1762,6 @@ do_http(thr_arg *arg)
                 clean_all();
                 return;
               }
-              else
-                if (!msc_process_logging(modsec_transaction)) // log if any error was found
-                  logmsg(LOG_WARNING, "%s (%lx) WAF, error processing the log", buf_log_tag, pthread_self());
             }
             waf_del_transaction(&modsec_transaction);
 #endif
@@ -1850,9 +1844,8 @@ do_http(thr_arg *arg)
                     free(body_buff);
                     body_buff=NULL;
                     waf_body=0;
-                } else
+                } else if(be_11 && chunked) {
                 /* ignore this if request was HEAD or similar */
-                if(be_11 && chunked) {
                     /* had Transfer-encoding: chunked so read/write all the chunks (HTTP/1.1 only) */
                     if(copy_chunks(be, cl, &res_bytes, skip, L0)) {
                         /* copy_chunks() has its own error messages */

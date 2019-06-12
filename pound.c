@@ -265,6 +265,12 @@ void handler(int sig) {
 }
 
 
+// data to waf log output
+static void logmsg_cb(void *data, const void *message)
+{
+    logmsg(LOG_INFO, "%s", (const char *)message);
+}
+
 
 /*
  * Pound: the reverse-proxy/load-balancer
@@ -466,6 +472,7 @@ main(const int argc, char **argv)
     #if WAF
         // WAF initializate waf API
         waf_api = msc_init();
+        msc_set_log_cb(waf_api, (void *)logmsg_cb);
     #endif
 
     //daemonize=0;    // Debug

@@ -318,9 +318,6 @@ waf_resolution(Transaction *t, int *int_code, char **url, char *tag) {
 
   if (msc_intervention(t,&intervention)) {
 
-    if (intervention.log)
-        logmsg(LOG_WARNING, "[WAF,%s] (%lx) %s", tag, pthread_self(), intervention.log );
-
     if (!msc_process_logging(t)) // log if any error was found
       logmsg(LOG_WARNING, "%s (%lx) WAF, error processing the log", tag, pthread_self());
 
@@ -334,6 +331,9 @@ waf_resolution(Transaction *t, int *int_code, char **url, char *tag) {
         intervention.status = 403;  // default value
     }
   }
+
+  if (intervention.log != NULL)
+    logmsg(LOG_WARNING, "[WAF,%s] (%lx) %s", tag, pthread_self(), intervention.log );
 
   return waf_action;
 }

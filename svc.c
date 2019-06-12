@@ -2098,7 +2098,7 @@ thr_control(void *arg)
             break;
 #if WAF
         case REL_WAF:
-            config_parse_waf();
+            config_parse_waf(1);
             waf_reload_rules();
             break;
 #endif
