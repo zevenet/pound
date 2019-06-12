@@ -737,7 +737,7 @@ parse_service(const char *svc_name)
     if(svc_name)
         strncpy(res->name, svc_name, KEY_SIZE);
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
-    if((res->sessions = lh_TABNODE_new(t_hash, t_cmp)) == NULL)    
+    if((res->sessions = lh_TABNODE_new(t_hash, t_cmp)) == NULL)
 #elif OPENSSL_VERSION_NUMBER >= 0x10000000L
     if((res->sessions = LHM_lh_new(TABNODE, t)) == NULL)
 #else
@@ -1728,8 +1728,7 @@ parse_file(void)
                lin[matches[1].rm_eo] = '\0';
                file->file = strdup(lin + matches[1].rm_so);
                file->next = NULL;
-
-               if(waf_rules_file != NULL) {
+               if(waf_rules_file == NULL) {
                  bef_file = file;
                  waf_rules_file = file;
                }
@@ -1801,6 +1800,62 @@ parse_file(void)
 }
 
 
+#if WAF
+// compile WAF config regexp if the flag is set
+void config_parse_waf( int compile_flag ) {
+    char      lin[MAXBUF];
+    FILE_LIST *file = NULL;
+    char *tmp = NULL;
+    FILE_LIST *bef_file = NULL;
+    FILE_LIST *it = waf_rules_file;
+
+
+    if( waf_rules_file != NULL ) {
+        // Free all files struct
+        while ( it ) {
+            it = it->next;
+            free ( waf_rules_file->file );
+            free ( waf_rules_file );
+            waf_rules_file = it;
+        }
+        waf_rules_file = NULL;
+    }
+    bef_file = NULL;
+
+    if (compile_flag)
+        regcomp(&WafRules, "^[ \t]*WafRules[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED);
+
+    conf_init(conf_name);
+
+    while(conf_fgets(lin, MAXBUF)) {
+        if(!regexec(&WafRules, lin, 4, matches, 0)) {
+            if ((file = (FILE_LIST *)malloc(sizeof (FILE_LIST)) ) == NULL ) {
+                conf_err("WAF config: out of memory - aborted");
+            }
+            else {
+                lin[matches[1].rm_eo] = '\0';
+                tmp = strdup(lin + matches[1].rm_so);
+                file->file = tmp;
+                file->next = NULL;
+
+                if(waf_rules_file == NULL)  {
+                    bef_file = file;
+                    waf_rules_file = file;
+                }
+                else {
+                    bef_file->next = file;
+                    bef_file=file;
+                }
+            }
+        }
+    }
+
+    if (compile_flag)
+        regfree(&WafRules);
+
+    return;
+}
+#endif
 
 
 
@@ -2044,6 +2099,10 @@ config_parse(const int argc, char **const argv)
       if (waf_err)
         exit(waf_err);
     }
+    config_parse_waf(0);
+    // load rules
+    if (waf_reload_rules())
+        exit(1);
 #endif
 
     if(check_only) {
@@ -2155,69 +2214,3 @@ config_parse(const int argc, char **const argv)
     return;
 }
 
-#if WAF
-void
-config_parse_waf() {
-  char      lin[MAXBUF];
-  FILE_LIST *file = NULL;
-  char *tmp = NULL;
-  FILE_LIST *bef_file = NULL;
-  FILE_LIST *it = waf_rules_file;
-
-  if(regcomp(&Empty, "^[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
-          || regcomp(&Comment, "^[ \t]*#.*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
-          || regcomp(&Include, "^[ \t]*Include[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
-          || regcomp(&IncludeDir, "^[ \t]*IncludeDir[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
-    ){
-      logmsg(LOG_ERR, "bad config Regex - aborted");
-      exit(1);
-  }
-
-
-  if( waf_rules_file != NULL ) {
-    // Free all files struct
-      while ( it ) {
-          it = it->next;
-          free ( waf_rules_file->file );
-          free ( waf_rules_file );
-          waf_rules_file = it;
-      }
-      waf_rules_file = NULL;
-  }
-  bef_file = NULL;
-
-  regcomp(&WafRules, "^[ \t]*WafRules[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED);
-
-  conf_init(conf_name);
-
-  while(conf_fgets(lin, MAXBUF)) {
-    if(!regexec(&WafRules, lin, 4, matches, 0)) {
-       if ((file = (FILE_LIST *)malloc(sizeof (FILE_LIST)) ) == NULL ) {
-          conf_err("WAF config: out of memory - aborted");
-       }
-       else {
-          lin[matches[1].rm_eo] = '\0';
-          tmp = strdup(lin + matches[1].rm_so);
-          file->file = tmp;
-          file->next = NULL;
-
-          if(waf_rules_file == NULL)  {
-            bef_file = file;
-            waf_rules_file = file;
-          }
-          else {
-            bef_file->next = file;
-            bef_file=file;
-          }
-       }
-    }
-  }
-
-  regfree(&WafRules);
-  regfree(&Empty);
-  regfree(&Include);
-  regfree(&Include);
-  regfree(&Comment);
-
-}
-#endif

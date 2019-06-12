@@ -463,6 +463,11 @@ main(const int argc, char **argv)
     /* Turn off verbose messages (if necessary) */
     print_log = 0;
 
+    #if WAF
+        // WAF initializate waf API
+        waf_api = msc_init();
+    #endif
+
     //daemonize=0;    // Debug
     if ( daemonize ){
         /* daemonize - make ourselves a subprocess. */
@@ -514,15 +519,6 @@ main(const int argc, char **argv)
             logmsg(LOG_ERR, "setuid: %s - aborted", strerror(errno));
             exit(1);
         }
-
-#if WAF
-    // WAF initializate waf API
-    waf_api = msc_init();
-    config_parse_waf();
-    // load rules
-    if (waf_reload_rules())
-        exit(1);
-#endif
 
     /* split off into monitor and working process if necessary */
     for(;;) {
