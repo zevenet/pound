@@ -8,12 +8,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Pound is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -27,125 +27,131 @@
 
 #ifndef POUND_H
 #define POUND_H
-#include    "config.h"
-#include    <stdio.h>
-#include    <math.h>
+#include "config.h"
+#include <math.h>
+#include <stdio.h>
 
-#include    <dirent.h>
+#include <dirent.h>
 #if HAVE_STDLIB_H
-#include    <stdlib.h>
+#include <stdlib.h>
 #else
 #error "Pound needs stdlib.h"
 #endif
 
+#if WAF
+#include <modsecurity/modsecurity.h>
+#include <modsecurity/rules.h>
+#include <modsecurity/transaction.h>
+#endif
+
 #if HAVE_UNISTD_H
-#include    <unistd.h>
+#include <unistd.h>
 #else
 #error "Pound needs unistd.h"
 #endif
 
 #if HAVE_GETOPT_H
-#include    <getopt.h>
+#include <getopt.h>
 #endif
 
 #if HAVE_PTHREAD_H
-#include    <pthread.h>
+#include <pthread.h>
 #else
 #error "Pound needs pthread.h"
 #endif
 
 #if HAVE_STRING_H
-#include    <string.h>
+#include <string.h>
 #else
 #error "Pound needs string.h"
 #endif
 
 #if TIME_WITH_SYS_TIME
 #if HAVE_SYS_TIME_H
-#include    <sys/time.h>
+#include <sys/time.h>
 #else
 #error "Pound needs sys/time.h"
 #endif
 #if HAVE_TIME_H
-#include    <time.h>
+#include <time.h>
 #else
 #error "Pound needs time.h"
 #endif
-#else   /* may not mix sys/time.h and time.h */
+#else /* may not mix sys/time.h and time.h */
 #if HAVE_SYS_TIME_H
-#include    <sys/time.h>
-#elif   HAVE_TIME_H
-#include    <time.h>
+#include <sys/time.h>
+#elif HAVE_TIME_H
+#include <time.h>
 #else
 #error "Pound needs time.h"
 #endif
-#endif  /* mix */
+#endif /* mix */
 
 #if HAVE_SYS_TYPES_H
-#include    <sys/types.h>
+#include <sys/types.h>
 #else
 #error "Pound needs sys/types.h"
 #endif
 
 #if HAVE_SYS_SOCKET_H
-#include    <sys/socket.h>
+#include <sys/socket.h>
 #else
 #error "Pound needs sys/socket.h"
 #endif
 
 #if HAVE_SYS_UN_H
-#include    <sys/un.h>
+#include <sys/un.h>
 #else
 #error "Pound needs sys/un.h"
 #endif
 
 #ifndef UNIX_PATH_MAX
 /* on Linux this is defined in linux/un.h rather than sys/un.h - go figure */
-#define UNIX_PATH_MAX   108
+#define UNIX_PATH_MAX 108
 #endif
 
 #if HAVE_NETINET_IN_H
-#include    <netinet/in.h>
+#include <netinet/in.h>
 #else
 #error "Pound needs netinet/in.h"
 #endif
 
 #if HAVE_NETINET_TCP_H
-#include    <netinet/tcp.h>
+#include <netinet/tcp.h>
 #else
 #error "Pound needs netinet/tcp.h"
 #endif
 
 #if HAVE_ARPA_INET_H
-#include    <arpa/inet.h>
+#include <arpa/inet.h>
 #else
 #error "Pound needs arpa/inet.h"
 #endif
 
 #if HAVE_NETDB_H
-#include    <netdb.h>
+#include <netdb.h>
 #else
 #error "Pound needs netdb.h"
 #endif
 
 #if HAVE_SYS_POLL_H
-#include    <sys/poll.h>
+#include <sys/poll.h>
 #else
 #error "Pound needs sys/poll.h"
 #endif
 
 #if HAVE_OPENSSL_SSL_H
 #define OPENSSL_THREAD_DEFINES
-#include    <openssl/ssl.h>
-#include    <openssl/lhash.h>
-#include    <openssl/err.h>
+#include <openssl/err.h>
+#include <openssl/lhash.h>
+#include <openssl/ssl.h>
 #if OPENSSL_VERSION_NUMBER >= 0x00907000L
 #ifndef OPENSSL_THREADS
-#error  "Pound requires OpenSSL with thread support"
+#error "Pound requires OpenSSL with thread support"
 #endif
 #else
 #ifndef THREADS
-#error  "Pound requires OpenSSL with thread support"
+#error "Pound requires OpenSSL with thread support"
 #endif
 #endif
 #else
@@ -153,89 +159,90 @@
 #endif
 
 #if HAVE_OPENSSL_ENGINE_H
-#include    <openssl/engine.h>
+#include <openssl/engine.h>
 #endif
 
 #if HAVE_PWD_H
-#include    <pwd.h>
+#include <pwd.h>
 #else
 #error "Pound needs pwd.h"
 #endif
 
 #if HAVE_GRP_H
-#include    <grp.h>
+#include <grp.h>
 #else
 #error "Pound needs grp.h"
 #endif
 
 #if HAVE_SYSLOG_H
-#include    <syslog.h>
+#include <syslog.h>
 #endif
 
 #if HAVE_SYS_SYSLOG_H
-#include    <sys/syslog.h>
+#include <sys/syslog.h>
 #endif
 
 #if HAVE_SIGNAL_H
-#include    <signal.h>
+#include <signal.h>
 #else
 #error "Pound needs signal.h"
 #endif
 
 #if HAVE_LIBPCREPOSIX
 #if HAVE_PCREPOSIX_H
-#include    <pcreposix.h>
+#include <pcreposix.h>
 #elif HAVE_PCRE_PCREPOSIX_H
-#include    <pcre/pcreposix.h>
+#include <pcre/pcreposix.h>
 #else
-#error "You have libpcreposix, but the header files are missing. Use --disable-pcreposix"
+#error                                                                         \
+    "You have libpcreposix, but the header files are missing. Use --disable-pcreposix"
 #endif
 #elif HAVE_REGEX_H
-#include    <regex.h>
+#include <regex.h>
 #else
 #error "Pound needs regex.h"
 #endif
 
 #if HAVE_CTYPE_H
-#include    <ctype.h>
+#include <ctype.h>
 #else
 #error "Pound needs ctype.h"
 #endif
 
 #if HAVE_ERRNO_H
-#include    <errno.h>
+#include <errno.h>
 #else
 #error "Pound needs errno.h"
 #endif
 
 #if HAVE_WAIT_H
-#include    <wait.h>
-#elif   HAVE_SYS_WAIT_H
-#include    <sys/wait.h>
+#include <wait.h>
+#elif HAVE_SYS_WAIT_H
+#include <sys/wait.h>
 #else
 #error "Pound needs sys/wait.h"
 #endif
 
 #if HAVE_SYS_STAT_H
-#include    <sys/stat.h>
+#include <sys/stat.h>
 #else
 #error "Pound needs sys/stat.h"
 #endif
 
 #if HAVE_FCNTL_H
-#include    <fcntl.h>
+#include <fcntl.h>
 #else
 #error "Pound needs fcntl.h"
 #endif
 
 #if HAVE_STDARG_H
-#include    <stdarg.h>
+#include <stdarg.h>
 #else
-#include    <varargs.h>
+#include <varargs.h>
 #endif
 
 #if HAVE_FNMATCH_H
-#include    <fnmatch.h>
+#include <fnmatch.h>
 #else
 #error "Pound needs fnmatch.h"
 #endif
@@ -244,18 +251,18 @@
 #define const
 #endif
 
-#ifdef  HAVE_LONG_LONG_INT
-#define LONG    long long
-#define L0      0LL
-#define L_1     -1LL
-#define STRTOL  strtoll
-#define ATOL    atoll
+#ifdef HAVE_LONG_LONG_INT
+#define LONG long long
+#define L0 0LL
+#define L_1 -1LL
+#define STRTOL strtoll
+#define ATOL atoll
 #else
-#define LONG    long
-#define L0      0L
-#define L_1     -1L
-#define STRTOL  strtol
-#define ATOL    atol
+#define LONG long
+#define L0 0L
+#define L_1 -1L
+#define STRTOL strtol
+#define ATOL atol
 #endif
 
 #ifndef NO_EXTERNALS
@@ -263,106 +270,134 @@
  * Global variables needed by everybody
  */
 
-extern char *user,              /* user to run as */
-            *group,             /* group to run as */
-			*name,			/* farm name to run as */
-            *root_jail,         /* directory to chroot to */
-            *pid_name,          /* file to record pid in */
-            *ctrl_name,         /* control socket name */
-            *ctrl_user,         /* control socket username */
-		    *ctrl_group,   /* control socket group name */
-		    *sync_socket;  /*session sync socket path*/
+extern char    *conf_name;
+extern int     body_max_size;
+#if WAF
+typedef struct _file_list{
+      char *file; /* file with waf rules */
+      struct _file_list *next;
+} FILE_LIST;
+extern Rules   *waf_rules;
+extern ModSecurity   *waf_api;  /* control socket to connect with waf process */
+extern FILE_LIST *waf_rules_file;
+#endif
 
-extern long ctrl_mode;          /* octal mode of the control socket */
+extern char *user, /* user to run as */
+    *group,        /* group to run as */
+    *name,         /* farm name to run as */
+    *root_jail,    /* directory to chroot to */
+    *pid_name,     /* file to record pid in */
+    *ctrl_name,    /* control socket name */
+    *ctrl_user,    /* control socket username */
+    *ctrl_group,   /* control socket group name */
+    *sync_socket;  /*session sync socket path*/
 
-extern int  numthreads,         /* number of worker threads */
-            anonymise,          /* anonymise client address */
-            threadpool,         /* 1 to use a threadpool (i.e. 2.6 behavior)
-                                   0 to use new thread per request (2.5 behavior) */
-            alive_to,           /* check interval for resurrection */
-            daemonize,          /* run as daemon */
-            log_facility,       /* log facility to use */
-            print_log,          /* print log messages to stdout/stderr */
-            grace,              /* grace period before shutdown */
-            control_sock,       /* control socket */
-		    ignore_100,        /* ignore header "Expect: 100-continue"*/
-						/* 1 Ignore header (Default)*/
-						/* 0 Manages header */
-		    sync_is_enabled;   /*session sync enabled*/
+extern long ctrl_mode; /* octal mode of the control socket */
 
-extern regex_t  HEADER,     /* Allowed header */
-                CHUNK_HEAD, /* chunk header line */
-                RESP_SKIP,  /* responses for which we skip response */
-                RESP_IGN,   /* responses for which we ignore content */
-                LOCATION,   /* the host we are redirected to */
-                AUTHORIZATION;  /* the Authorisation header */
+extern int numthreads, /* number of worker threads */
+    anonymise,         /* anonymise client address */
+    threadpool,        /* 1 to use a threadpool (i.e. 2.6 behavior)
+                          0 to use new thread per request (2.5 behavior) */
+    alive_to,          /* check interval for resurrection */
+    daemonize,         /* run as daemon */
+    log_facility,      /* log facility to use */
+    print_log,         /* print log messages to stdout/stderr */
+    grace,             /* grace period before shutdown */
+    control_sock,      /* control socket */
+    ignore_100,        /* ignore header "Expect: 100-continue"*/
+                       /* 1 Ignore header (Default)*/
+                       /* 0 Manages header */
+    sync_is_enabled;   /*session sync enabled*/
 
-#ifndef  SOL_TCP
+extern regex_t HEADER, /* Allowed header */
+    CHUNK_HEAD,        /* chunk header line */
+    RESP_SKIP,         /* responses for which we skip response */
+    RESP_IGN,          /* responses for which we ignore content */
+    LOCATION,          /* the host we are redirected to */
+    AUTHORIZATION;     /* the Authorisation header */
+
+#ifndef SOL_TCP
 /* for systems without the definition */
-extern int  SOL_TCP;
+extern int SOL_TCP;
 #endif
 
 #endif /* NO_EXTERNALS */
 
 #ifndef MAXBUF
-#define MAXBUF      4096
+#define MAXBUF 4096
 #endif
-
-#define MAXHEADERS  128
+#define MAXADDRBUFF 4096
+#define MAXHEADERS 128
 
 #ifndef F_CONF
-#define F_CONF  "/usr/local/etc/pound.cfg"
+#define F_CONF "/usr/local/etc/pound.cfg"
 #endif
 
 #ifndef F_PID
-#define F_PID  "/var/run/pound.pid"
+#define F_PID "/var/run/pound.pid"
 #endif
+
+/* back-end types */
+typedef enum {
+  REQUEST,
+  RESPONSE
+} HTTP_STEP;
 
 /* matcher chain */
 typedef struct _matcher {
-    regex_t             pat;        /* pattern to match the request/header against */
-    struct _matcher     *next;
-}   MATCHER;
+  regex_t pat; /* pattern to match the request/header against */
+  struct _matcher *next;
+} MATCHER;
 
 /* back-end types */
-typedef enum    { SESS_NONE, SESS_IP, SESS_COOKIE, SESS_URL, SESS_PARM, SESS_HEADER, SESS_BASIC }   SESS_TYPE;
+typedef enum {
+  SESS_NONE,
+  SESS_IP,
+  SESS_COOKIE,
+  SESS_URL,
+  SESS_PARM,
+  SESS_HEADER,
+  SESS_BASIC
+} SESS_TYPE;
 
 /* back-end definition */
 typedef struct _backend {
-    int                 be_type;    /* 0 if real back-end, otherwise code (301, 302/default, 307) */
-    struct addrinfo     addr;       /* IPv4/6 address */
-    int                 priority;   /* priority */
-    int                 to;         /* read/write time-out */
-    int                 conn_to;    /* connection time-out */
-    struct addrinfo     ha_addr;    /* HA address/port */
-    char                *url;       /* for redirectors */
-    int                 redir_req;  /* 0 - redirect is absolute, 1 - the redirect should include the request path, or 2 if it should use perl dynamic replacement */
-    char                *bekey;     /* Backend Key for Cookie */
-    SSL_CTX             *ctx;       /* CTX for SSL connections */
-    pthread_mutex_t     mut;        /* mutex for this back-end */
-    int                 n_requests; /* number of requests seen */
-    double              t_requests; /* time to answer these requests */
-    double              t_average;  /* average time to answer requests */
-    int                 alive;      /* false if the back-end is dead */
-    int                 resurrect;  /* this back-end is to be resurrected */
-    int                 disabled;   /* true if the back-end is disabled */
-    int 				connections;
-    struct _backend     *next;
-  	int 				key_id;
-}   BACKEND;
+  int be_type; /* 0 if real back-end, otherwise code (301, 302/default, 307) */
+  struct addrinfo addr;    /* IPv4/6 address */
+  int priority;            /* priority */
+  int to;                  /* read/write time-out */
+  int conn_to;             /* connection time-out */
+  struct addrinfo ha_addr; /* HA address/port */
+  char *url;               /* for redirectors */
+  int redir_req; /* 0 - redirect is absolute, 1 - the redirect should include
+                    the request path, or 2 if it should use perl dynamic
+                    replacement */
+  char *bekey;   /* Backend Key for Cookie */
+  SSL_CTX *ctx;  /* CTX for SSL connections */
+  pthread_mutex_t mut; /* mutex for this back-end */
+  int n_requests;      /* number of requests seen */
+  double t_requests;   /* time to answer these requests */
+  double t_average;    /* average time to answer requests */
+  int alive;           /* false if the back-end is dead */
+  int resurrect;       /* this back-end is to be resurrected */
+  int disabled;        /* true if the back-end is disabled */
+  int connections;
+  struct _backend *next;
+  int key_id;
+} BACKEND;
 
 typedef struct _tn {
-	int 		listener;
-    int 		service;
-    char        *key;
-    void        *content;
-    time_t      last_acc;
-}   TABNODE;
+  int listener;
+  int service;
+  char *key;
+  void *content;
+  time_t last_acc;
+} TABNODE;
 
-#define n_children(N)   ((N)? (N)->children: 0)
+#define n_children(N) ((N) ? (N)->children : 0)
 
 /* maximal session key size */
-#define KEY_SIZE    127
+#define KEY_SIZE 127
 
 #if OPENSSL_VERSION_NUMBER >= 0x10000000L
 DECLARE_LHASH_OF(TABNODE);
@@ -370,159 +405,169 @@ DECLARE_LHASH_OF(TABNODE);
 
 /* service definition */
 typedef struct _service {
-    int 				key_id;
-    int 				listener_key_id;
-    char                name[KEY_SIZE + 1]; /* symbolic name */
-    MATCHER             *url,       /* request matcher */
-                        *req_head,  /* required headers */
-                        *deny_head; /* forbidden headers */
-    BACKEND             *backends;
-    BACKEND             *emergency;
-    int                 abs_pri;    /* abs total priority for all back-ends */
-    int                 tot_pri;    /* total priority for current back-ends */
-    pthread_mutex_t     mut;        /* mutex for this service */
-    SESS_TYPE           sess_type;
-    int                 sess_ttl;   /* session time-to-live */
-    regex_t             sess_start; /* pattern to identify the session data */
-    regex_t             sess_pat;   /* pattern to match the session data */
+  int key_id;
+  int listener_key_id;
+  char name[KEY_SIZE + 1]; /* symbolic name */
+  MATCHER *url,            /* request matcher */
+      *req_head,           /* required headers */
+      *deny_head;          /* forbidden headers */
+  BACKEND *backends;
+  BACKEND *emergency;
+  int abs_pri;         /* abs total priority for all back-ends */
+  int tot_pri;         /* total priority for current back-ends */
+  pthread_mutex_t mut; /* mutex for this service */
+  SESS_TYPE sess_type;
+  int sess_ttl;       /* session time-to-live */
+  regex_t sess_start; /* pattern to identify the session data */
+  regex_t sess_pat;   /* pattern to match the session data */
 #if OPENSSL_VERSION_NUMBER >= 0x10000000L
-    LHASH_OF(TABNODE)   *sessions;  /* currently active sessions */
+  LHASH_OF(TABNODE) * sessions; /* currently active sessions */
 #else
-    LHASH               *sessions;  /* currently active sessions */
+  LHASH *sessions; /* currently active sessions */
 #endif
-    regex_t             becookie_re;/* Regexs to find backend cookies */
-    char                *becookie,  /* Backend Cookie Name */
-                        *becdomain, /* Backend Cookie domain */
-                        *becpath;   /* Backend cookie path */
-    int                 becage;     /* Backend cookie age */
-    int                 dynscale;   /* true if the back-ends should be dynamically rescaled */
-    int                 disabled;   /* true if the service is disabled */
-    int					sts;		/* strict transport security */
-    struct _service     *next;
-}   SERVICE;
+  regex_t becookie_re; /* Regexs to find backend cookies */
+  char *becookie,      /* Backend Cookie Name */
+      *becdomain,      /* Backend Cookie domain */
+      *becpath;        /* Backend cookie path */
+  int becage;          /* Backend cookie age */
+  int dynscale; /* true if the back-ends should be dynamically rescaled */
+  int disabled; /* true if the service is disabled */
+  int sts;      /* strict transport security */
+  struct _service *next;
+} SERVICE;
 
 #ifndef NO_EXTERNALS
-extern SERVICE          *services;  /* global services (if any) */
-#endif /* NO_EXTERNALS */
+extern SERVICE *services; /* global services (if any) */
+#endif                    /* NO_EXTERNALS */
 
 typedef struct _pound_ctx {
-    SSL_CTX             *ctx;
-    char                *server_name;
-    unsigned char       **subjectAltNames;
-    unsigned int        subjectAltNameCount;
-    struct _pound_ctx   *next;
+  SSL_CTX *ctx;
+  char *server_name;
+  unsigned char **subjectAltNames;
+  unsigned int subjectAltNameCount;
+  struct _pound_ctx *next;
 } POUND_CTX;
 
 /* Listener definition */
 typedef struct _listener {
-    int 				key_id;
-    struct addrinfo     addr;               /* IPv4/6 address */
-    int                 sock;               /* listening socket */
-    POUND_CTX           *ctx;               /* CTX for SSL connections */
-    int                 clnt_check;         /* client verification mode */
-    int                 noHTTPS11;          /* HTTP 1.1 mode for SSL */
-    MATCHER             *forcehttp10;       /* User Agent Patterns to force HTTP 1.0 mode */
-    MATCHER             *ssl_uncln_shutdn;  /* User Agent Patterns to enable ssl unclean shutdown */
-    char                *add_head;          /* extra SSL header */
-    regex_t             verb;               /* pattern to match the request verb against */
-    int                 to;                 /* client time-out */
-    int                 has_pat;            /* was a URL pattern defined? */
-    regex_t             url_pat;            /* pattern to match the request URL against */
-    char                *err414,            /* error messages */
-                        *err500,
-                        *err501,
-                        *err503,
-                        *errnossl;
-    char                *nossl_url;         /* If a user goes to a https port with a http: url, redirect them to this url */
-    int                 nossl_redir;        /* Code to use for redirect (301 302 307)*/
-    LONG                max_req;            /* max. request size */
-    MATCHER             *head_off;          /* headers to remove */
-    int                 rewr_loc;           /* rewrite location response */
-    int                 rewr_dest;          /* rewrite destination header */
-    int                 disabled;           /* true if the listener is disabled */
-    int                 log_level;          /* log level for this listener */
-    int                 allow_client_reneg; /* Allow Client SSL Renegotiation */
-    int                 disable_ssl_v2;     /* Disable SSL version 2 */
-    SERVICE             *services;
-    struct _listener    *next;
-}   LISTENER;
+  int key_id;
+  struct addrinfo addr; /* IPv4/6 address */
+  int sock;             /* listening socket */
+  POUND_CTX *ctx;       /* CTX for SSL connections */
+  int clnt_check;       /* client verification mode */
+  int noHTTPS11;        /* HTTP 1.1 mode for SSL */
+  MATCHER *forcehttp10; /* User Agent Patterns to force HTTP 1.0 mode */
+  MATCHER *
+      ssl_uncln_shutdn; /* User Agent Patterns to enable ssl unclean shutdown */
+  char *add_head;       /* extra SSL header */
+  regex_t verb;         /* pattern to match the request verb against */
+  int to;               /* client time-out */
+  int has_pat;          /* was a URL pattern defined? */
+  regex_t url_pat;      /* pattern to match the request URL against */
+  char *err414,         /* error messages */
+      *err500, *err501, *err503, *errnossl;
+  char *nossl_url; /* If a user goes to a https port with a http: url, redirect
+                      them to this url */
+  int nossl_redir; /* Code to use for redirect (301 302 307)*/
+  LONG max_req;    /* max. request size */
+  MATCHER *head_off;      /* headers to remove */
+  int rewr_loc;           /* rewrite location response */
+  int rewr_dest;          /* rewrite destination header */
+  int disabled;           /* true if the listener is disabled */
+  int log_level;          /* log level for this listener */
+  int allow_client_reneg; /* Allow Client SSL Renegotiation */
+  int disable_ssl_v2;     /* Disable SSL version 2 */
+  SERVICE *services;
+  struct _listener *next;
+} LISTENER;
 
 #ifndef NO_EXTERNALS
-extern LISTENER         *listeners; /* all available listeners */
-#endif /* NO_EXTERNALS */
+extern LISTENER *listeners; /* all available listeners */
+#endif                      /* NO_EXTERNALS */
 
 typedef struct _thr_arg {
-    int             sock;
-    LISTENER        *lstn;
-    struct addrinfo from_host;
-    struct _thr_arg *next;
-}   thr_arg;                        /* argument to processing threads: socket, origin */
+  int sock;
+  LISTENER *lstn;
+  struct addrinfo from_host;
+  struct _thr_arg *next;
+} thr_arg; /* argument to processing threads: socket, origin */
 
 /* Track SSL handshare/renegotiation so we can reject client-renegotiations. */
-typedef enum { RENEG_INIT=0, RENEG_REJECT, RENEG_ALLOW, RENEG_ABORT } RENEG_STATE;
+typedef enum {
+  RENEG_INIT = 0,
+  RENEG_REJECT,
+  RENEG_ALLOW,
+  RENEG_ABORT
+} RENEG_STATE;
 
 /* Header types */
-#define HEADER_ILLEGAL              -1
-#define HEADER_OTHER                0
-#define HEADER_TRANSFER_ENCODING    1
-#define HEADER_CONTENT_LENGTH       2
-#define HEADER_CONNECTION           3
-#define HEADER_LOCATION             4
-#define HEADER_CONTLOCATION         5
-#define HEADER_HOST                 6
-#define HEADER_REFERER              7
-#define HEADER_USER_AGENT           8
-#define HEADER_URI                  9
-#define HEADER_DESTINATION          10
-#define HEADER_EXPECT               11
+#define HEADER_ILLEGAL -1
+#define HEADER_OTHER 0
+#define HEADER_TRANSFER_ENCODING 1
+#define HEADER_CONTENT_LENGTH 2
+#define HEADER_CONNECTION 3
+#define HEADER_LOCATION 4
+#define HEADER_CONTLOCATION 5
+#define HEADER_HOST 6
+#define HEADER_REFERER 7
+#define HEADER_USER_AGENT 8
+#define HEADER_URI 9
+#define HEADER_DESTINATION 10
+#define HEADER_EXPECT 11
 #define HEADER_STRICT_TRANSPORT_SECURITY 12
 
 /* control request stuff */
-typedef enum    {
-    CTRL_LST,
-    CTRL_EN_LSTN, CTRL_DE_LSTN,
-    CTRL_EN_SVC, CTRL_DE_SVC,
-    CTRL_EN_BE, CTRL_DE_BE,
-    CTRL_ADD_SESS, CTRL_DEL_SESS, CTRL_FLUSH_SESS
-}   CTRL_CODE;
+typedef enum {
+  CTRL_LST,
+  CTRL_EN_LSTN,
+  CTRL_DE_LSTN,
+  CTRL_EN_SVC,
+  CTRL_DE_SVC,
+  CTRL_EN_BE,
+  CTRL_DE_BE,
+  CTRL_ADD_SESS,
+  CTRL_DEL_SESS,
+  CTRL_FLUSH_SESS,
+  REL_WAF
+} CTRL_CODE;
 
-typedef struct  {
-    CTRL_CODE   cmd;
-    int         listener;
-    int         service;
-    int         backend;
-    char        key[KEY_SIZE + 1];
-}   CTRL_CMD;
+typedef struct {
+  CTRL_CODE cmd;
+  int listener;
+  int service;
+  int backend;
+  char key[KEY_SIZE + 1];
+} CTRL_CMD;
 
-#ifdef  NEED_INADDRT
+#ifdef NEED_INADDRT
 /* for oldish Unices - normally this is in /usr/include/netinet/in.h */
-typedef u_int32_t   in_addr_t;
+typedef u_int32_t in_addr_t;
 #endif
 
-#ifdef  NEED_INPORTT
+#ifdef NEED_INPORTT
 /* for oldish Unices - normally this is in /usr/include/netinet/in.h */
-typedef u_int16_t   in_port_t;
+typedef u_int16_t in_port_t;
 #endif
 
-#ifdef  NEED_TIMET
+#ifdef NEED_TIMET
 /* for oldish Unices - normally this is in /usr/include/time.h */
-typedef u_int32_t   time_t;
+typedef u_int32_t time_t;
 #endif
 
 /*
  * add a request to the queue
  */
-extern int  put_thr_arg(thr_arg *);
+extern int put_thr_arg(thr_arg *);
 
 /*
  * get a request from the queue
  */
-extern thr_arg  *get_thr_arg(void);
+extern thr_arg *get_thr_arg(void);
 
 /*
  * get the current queue length
  */
-extern  get_thr_qlen(void);
+extern get_thr_qlen(void);
 
 /*
  * handle an HTTP request
@@ -540,6 +585,12 @@ extern void logmsg(const int, const char *, ...);
  */
 extern int cpURL(char *, char *, int);
 
+
+/*
+ * Translate inet/inet6 address into a string
+ */
+extern void addr2IpAndPort(char *, int *, const int, const struct addrinfo *);
+
 /*
  * Translate inet/inet6 address into a string
  */
@@ -548,12 +599,12 @@ extern void addr2str(char *, const int, const struct addrinfo *, const int);
 /*
  * Return a string representation for a back-end address
  */
-#define str_be(BUF, LEN, BE)    addr2str((BUF), (LEN), &(BE)->addr, 0)
+#define str_be(BUF, LEN, BE) addr2str((BUF), (LEN), &(BE)->addr, 0)
 
 /*
  * Find the right service for a request
  */
-extern SERVICE  *get_service(const LISTENER *, const char *, char **const);
+extern SERVICE *get_service(const LISTENER *, const char *, char **const);
 
 /*
  * Find the right back-end for a request
@@ -564,7 +615,7 @@ extern BACKEND *get_backend(SERVICE *const, const struct addrinfo *,
 /*
  * Search for a host name, return the addrinfo for it
  */
-extern int  get_host(char *const, struct addrinfo *, int);
+extern int get_host(char *const, struct addrinfo *, int);
 
 /*
  * Find if a redirect needs rewriting
@@ -572,7 +623,8 @@ extern int  get_host(char *const, struct addrinfo *, int);
  * (1) if the redirect was done to the correct location with the wrong protocol
  * (2) if the redirect was done to the back-end rather than the listener
  */
-extern int  need_rewrite(const int, char *const, char *const, const char *, const LISTENER *, const BACKEND *);
+extern int need_rewrite(const int, char *const, char *const, const char *,
+                        const LISTENER *, const BACKEND *);
 /*
  * (for cookies only) possibly create session based on response headers
  */
@@ -581,11 +633,11 @@ extern void upd_session(SERVICE *const, char **const, BACKEND *const);
 /*
  * Parse a header
  */
-extern int  check_header(const char *, char *);
+extern int check_header(const char *, char *);
 
-#define BE_DISABLE  -1
-#define BE_KILL     1
-#define BE_ENABLE   0
+#define BE_DISABLE -1
+#define BE_KILL 1
+#define BE_ENABLE 0
 /*
  * mark a backend host as dead;
  * do nothing if no resurection code is active
@@ -597,7 +649,7 @@ extern void kill_be(SERVICE *const, const BACKEND *, const int);
  * runs every 5 minutes
  */
 #ifndef RESCALE_TO
-#define RESCALE_TO  300
+#define RESCALE_TO 300
 #endif
 
 /*
@@ -616,35 +668,37 @@ extern void upd_be(SERVICE *const svc, BACKEND *const be, const double);
  * Non-blocking version of connect(2). Does the same as connect(2) but
  * ensures it will time-out after a much shorter time period CONN_TO.
  */
-extern int  connect_nb(const int, const struct addrinfo *, const int, char *);
+extern int connect_nb(const int, const struct addrinfo *, const int, char *);
 
 /*
  * Parse arguments/config file
  */
 extern void config_parse(const int, char **const);
 
+extern void onfig_parse_waf(void);
+
 /*
  * RSA ephemeral keys: how many and how often
  */
-#define N_RSA_KEYS  11
+#define N_RSA_KEYS 11
 #ifndef T_RSA_KEYS
-#define T_RSA_KEYS  7200
+#define T_RSA_KEYS 7200
 #endif
 
 /*
  * return a pre-generated RSA key
  */
-extern RSA  *RSA_tmp_callback(SSL *, int, int);
+extern RSA *RSA_tmp_callback(SSL *, int, int);
 
 /*
  * handle custom DH keys
  */
-extern DH   *load_dh_params(char *);
+extern DH *load_dh_params(char *);
 
 /*
  * return a pre-generated RSA key
  */
-extern DH   *DH_tmp_callback(SSL *, int, int);
+extern DH *DH_tmp_callback(SSL *, int, int);
 
 /*
  * Renegotiation callback
@@ -655,11 +709,11 @@ extern void SSLINFO_callback(const SSL *s, int where, int rc);
  * expiration stuff
  */
 #ifndef EXPIRE_TO
-#define EXPIRE_TO   60
+#define EXPIRE_TO 60
 #endif
 
 #ifndef HOST_TO
-#define HOST_TO     300
+#define HOST_TO 300
 #endif
 
 /*
@@ -683,4 +737,23 @@ extern void *thr_timer(void *);
  * listens to client requests and calls the appropriate functions
  */
 extern void *thr_control(void *);
+
+
+#if WAF
+typedef enum {
+  ALLOW,
+  REDIRECTION,
+  BLOCK
+} WAF_ACTION;
+
+void waf_del_transaction(Transaction **transac);
+void waf_create_transaction(Transaction **t, ModSecurity *ms, Rules *rules);
+int waf_reload_rules(void);
+int waf_body_enabled(int bodybuf, const char *logtag, int body_size, int chunked, int rpc);
+int waf_add_http_info(Transaction *t, const char *header);
+int waf_add_req_head(Transaction *t, char const **headers, int num_headers);
+int read_body(BIO *sock, char **buff, int size);
+int waf_resolution(Transaction *t,int *int_code, char **url, char *);
+#endif
+
 #endif

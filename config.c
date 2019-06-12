@@ -74,6 +74,9 @@ static CODE facilitynames[] = {
 #endif
 
 static regex_t  Empty, Comment, User, Group, Name, RootJail, Daemon, LogFacility, LogLevel, Alive, SSLEngine, Control;
+#if WAF
+static regex_t  WafRules, Waf_body_size;
+#endif
 static regex_t  ListenHTTP, ListenHTTPS, End, Address, Port, Cert, CertDir, xHTTP, Client, CheckURL;
 static regex_t  Err414, Err500, Err501, Err503, ErrNoSsl, NoSslRedirect, MaxRequest, HeadRemove, RewriteLocation, RewriteDestination;
 static regex_t  Service, ServiceName, URL, OrURLs, HeadRequire, HeadDeny, BackEnd, Emergency, Priority, HAport, HAportAddr, StrictTransportSecurity;
@@ -795,7 +798,7 @@ parse_service(const char *svc_name)
             if(regcomp(&m->pat, lin + matches[1].rm_so, REG_ICASE | REG_NEWLINE | REG_EXTENDED))
                 conf_err("HeadDeny bad pattern - aborted");
         } else if(!regexec(&StrictTransportSecurity, lin, 4, matches, 0)) {
-        	res->sts = atoi(lin + matches[1].rm_so);
+                res->sts = atoi(lin + matches[1].rm_so);
         } else if(!regexec(&Redirect, lin, 4, matches, 0)) {
             if(res->backends) {
                 for(be = res->backends; be->next; be = be->next)
@@ -868,8 +871,8 @@ parse_service(const char *svc_name)
             parse_sess(res);
         } else if(!regexec(&DynScale, lin, 4, matches, 0)) {
             res->dynscale = atoi(lin + matches[1].rm_so);
-	} else if(!regexec(&IgnoreCase, lin, 4, matches, 0)) {
-	    ign_case = atoi(lin + matches[1].rm_so);
+        } else if(!regexec(&IgnoreCase, lin, 4, matches, 0)) {
+            ign_case = atoi(lin + matches[1].rm_so);
         } else if(!regexec(&Disabled, lin, 4, matches, 0)) {
             res->disabled = atoi(lin + matches[1].rm_so);
         } else if(!regexec(&End, lin, 4, matches, 0)) {
@@ -1044,13 +1047,13 @@ parse_HTTP(void)
             if(res->services == NULL) {
                 res->services = parse_service(NULL);
                 if(res->services->sts >= 0)
-                	conf_err("StrictTransportSecurity not allowed in HTTP listener - aborted");
+                        conf_err("StrictTransportSecurity not allowed in HTTP listener - aborted");
             } else {
                 for(svc = res->services; svc->next; svc = svc->next)
                     ;
                 svc->next = parse_service(NULL);
                 if(svc->next->sts >= 0)
-                	conf_err("StrictTransportSecurity not allowed in HTTP listener - aborted");
+                        conf_err("StrictTransportSecurity not allowed in HTTP listener - aborted");
             }
         } else if(!regexec(&ServiceName, lin, 4, matches, 0)) {
             lin[matches[1].rm_eo] = '\0';
@@ -1488,7 +1491,7 @@ static void load_certdir(int has_other, LISTENER *res, const char *dir_path) {
 
     while((de = readdir(dp))!=NULL) {
         if (de->d_name[0] == '.') continue;
-	if (!pattern || fnmatch(pattern, de->d_name, 0) == 0 ) {
+        if (!pattern || fnmatch(pattern, de->d_name, 0) == 0 ) {
             snprintf(buf, sizeof(buf), "%s%s%s", dir_path, (dir_path[strlen(dir_path)-1]=='/')?"":"/", de->d_name);
             buf[sizeof(buf)-1] = 0;
             if (filecnt == sizeof(files)/sizeof(*files)) {
@@ -1519,7 +1522,7 @@ static void load_certdir(int has_other, LISTENER *res, const char *dir_path) {
 static void
 load_cert(int has_other, LISTENER *res, char *filename)
 {
-	POUND_CTX *pc;
+        POUND_CTX *pc;
 #ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
             /* we have support for SNI */
             FILE        *fcert;
@@ -1565,7 +1568,7 @@ load_cert(int has_other, LISTENER *res, char *filename)
                 if((pc->server_name = strdup(server_name + matches[1].rm_so)) == NULL)
                     conf_err("ListenHTTPS: could not set certificate subject");
             } else
-		logmsg(LOG_ERR, "ListenHTTPS: could not get certificate CN");
+                logmsg(LOG_ERR, "ListenHTTPS: could not get certificate CN");
                 // ZLB Patch - Disable exit error when CN is not present
                 //conf_err("ListenHTTPS: could not get certificate CN");
 #else
@@ -1602,6 +1605,10 @@ parse_file(void)
 #if HAVE_OPENSSL_ENGINE_H
     ENGINE      *e;
 #endif
+#if WAF
+    FILE_LIST *bef_file, *file = NULL;
+    waf_rules_file = NULL;
+#endif
 
     while(conf_fgets(lin, MAXBUF)) {
         if(strlen(lin) > 0 && lin[strlen(lin) - 1] == '\n')
@@ -1626,7 +1633,7 @@ parse_file(void)
             lin[matches[1].rm_eo] = '\0';
             DH *dh = load_dh_params(lin + matches[1].rm_so);
             if (!dh)
-	        conf_err("DHParams config: could not load file");
+                conf_err("DHParams config: could not load file");
             DHCustom_params = dh;
         } else if(!regexec(&Daemon, lin, 4, matches, 0)) {
             daemonize = atoi(lin + matches[1].rm_so);
@@ -1658,8 +1665,8 @@ parse_file(void)
             be_to = atoi(lin + matches[1].rm_so);
         } else if(!regexec(&ConnTO, lin, 4, matches, 0)) {
             be_connto = atoi(lin + matches[1].rm_so);
-	} else if(!regexec(&Ignore100continue, lin, 4, matches, 0)) {
-	    ignore_100 = atoi(lin + matches[1].rm_so);
+        } else if(!regexec(&Ignore100continue, lin, 4, matches, 0)) {
+            ignore_100 = atoi(lin + matches[1].rm_so);
         } else if(!regexec(&IgnoreCase, lin, 4, matches, 0)) {
             ignore_case = atoi(lin + matches[1].rm_so);
 #if OPENSSL_VERSION_NUMBER >= 0x0090800fL
@@ -1694,6 +1701,26 @@ parse_file(void)
                 conf_err("Control multiply defined - aborted");
             lin[matches[1].rm_eo] = '\0';
             ctrl_name = strdup(lin + matches[1].rm_so);
+ #if WAF
+        } else if(!regexec(&WafRules, lin, 4, matches, 0)) {
+            if ((file = (FILE_LIST *)malloc(sizeof (FILE_LIST)) ) == NULL ) {
+               conf_err("WAF config: out of memory - aborted");
+            }
+            else {
+               lin[matches[1].rm_eo] = '\0';
+               file->file = strdup(lin + matches[1].rm_so);
+               file->next = NULL;
+
+               if(waf_rules_file != NULL) {
+                 bef_file = file;
+                 waf_rules_file = file;
+               }
+               else
+                 bef_file->next = file;
+            }
+        } else if(!regexec(&Waf_body_size, lin, 4, matches, 0)) {
+            body_max_size = atoi(lin + matches[1].rm_so);
+#endif
         } else if(!regexec(&ControlUser, lin, 4, matches, 0)) {
             lin[matches[1].rm_eo] = '\0';
             if((ctrl_user = strdup(lin + matches[1].rm_so)) == NULL) {
@@ -1755,21 +1782,33 @@ parse_file(void)
     return;
 }
 
+
+
+
+
 /*
  * prepare to parse the arguments/config file
  */
 void
 config_parse(const int argc, char **const argv)
 {
-    char    *conf_name;
     FILE    *f_conf;
     int     c_opt, check_only;
+#if WAF
+    int     waf_err=0, waf_checks = 0;   // 1, check rule, 2 check set
+    char    *waf_rule_str;
+    char    *waf_set_str;
+#endif
 
     if(regcomp(&Empty, "^[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&Comment, "^[ \t]*#.*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&User, "^[ \t]*User[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&Group, "^[ \t]*Group[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&Name, "^[ \t]*Name[ \t]+(.+)[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
+#if WAF
+    || regcomp(&WafRules, "^[ \t]*WafRules[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
+    || regcomp(&Waf_body_size, "^[ \t]*WafBodySize[ \t]+([0-9]*)[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
+#endif
     || regcomp(&RootJail, "^[ \t]*RootJail[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&Daemon, "^[ \t]*Daemon[ \t]+([01])[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&Threads, "^[ \t]*Threads[ \t]+([1-9][0-9]*)[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
@@ -1811,8 +1850,8 @@ config_parse(const int argc, char **const argv)
     || regcomp(&BackendCookie, "^[ \t]*BackendCookie[ \t]+\"(.+)\"[ \t]+\"(.*)\"[ \t]+\"(.*)\"[ \t]+([0-9]+|Session)[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&HeadRequire, "^[ \t]*HeadRequire[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&HeadDeny, "^[ \t]*HeadDeny[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
-	|| regcomp(&StrictTransportSecurity, "^[ \t]*StrictTransportSecurity[ \t]+([0-9]+)[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
-	|| regcomp(&BackEnd, "^[ \t]*BackEnd[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
+    || regcomp(&StrictTransportSecurity, "^[ \t]*StrictTransportSecurity[ \t]+([0-9]+)[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
+    || regcomp(&BackEnd, "^[ \t]*BackEnd[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&Emergency, "^[ \t]*Emergency[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&Priority, "^[ \t]*Priority[ \t]+([1-9])[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
     || regcomp(&TimeOut, "^[ \t]*TimeOut[ \t]+([1-9][0-9]*)[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
@@ -1861,8 +1900,21 @@ config_parse(const int argc, char **const argv)
     conf_name = F_CONF;
     pid_name = F_PID;
 
+#if WAF
+    while((c_opt = getopt(argc, argv, "sf:cvVp:w:W:")) > 0)
+        switch(c_opt) {
+          case 'W':
+              waf_set_str = optarg;
+              waf_checks = 2;
+              break;
+          case 'w':
+              waf_rule_str = optarg;
+              waf_checks = 1;
+              break;
+#else
     while((c_opt = getopt(argc, argv, "sf:cvVp:")) > 0)
         switch(c_opt) {
+#endif
         case 's':
             sync_is_enabled = 1;
             break;
@@ -1927,11 +1979,29 @@ config_parse(const int argc, char **const argv)
         exit(1);
     }
 
+#if WAF
+    // Check rule and rule_set
+    if (waf_checks) {
+      if (waf_checks == 1)
+          waf_err = waf_check_rule(waf_rule_str);
+      else if (waf_checks == 2)
+          waf_err = waf_check_set(waf_set_str);
+        exit(waf_err);
+    }
+#endif
+
     conf_init(conf_name);
 
     user = NULL;
     group = NULL;
     name = NULL;
+#if WAF
+    waf_rules_file = NULL;
+    waf_rules = NULL;
+    FILE_LIST *waf_file = NULL;
+#endif
+//    body_max_size=4096;
+    body_max_size=-1;   // without limit
     root_jail = NULL;
     ctrl_name = NULL;
     DHCustom_params = NULL;
@@ -1948,6 +2018,15 @@ config_parse(const int argc, char **const argv)
 
     parse_file();
 
+#if WAF
+    // Check rule and rule_set
+    for ( waf_file = waf_rules_file; waf_file;waf_file = waf_file->next ) {
+      waf_err = waf_check_set(waf_file->file);
+      if (waf_err)
+        exit(waf_err);
+    }
+#endif
+
     if(check_only) {
         logmsg(LOG_INFO, "Config file %s is OK", conf_name);
         exit(0);
@@ -1959,6 +2038,10 @@ config_parse(const int argc, char **const argv)
     }
 
     regfree(&Empty);
+#if WAF
+    regfree(&WafRules);
+    regfree(&Waf_body_size);
+#endif
     regfree(&Comment);
     regfree(&User);
     regfree(&Group);
@@ -2051,3 +2134,70 @@ config_parse(const int argc, char **const argv)
 
     return;
 }
+
+#if WAF
+void
+config_parse_waf() {
+  char      lin[MAXBUF];
+  FILE_LIST *file = NULL;
+  char *tmp = NULL;
+  FILE_LIST *bef_file = NULL;
+  FILE_LIST *it = waf_rules_file;
+
+  if(regcomp(&Empty, "^[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
+          || regcomp(&Comment, "^[ \t]*#.*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
+          || regcomp(&Include, "^[ \t]*Include[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
+          || regcomp(&IncludeDir, "^[ \t]*IncludeDir[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED)
+    ){
+      logmsg(LOG_ERR, "bad config Regex - aborted");
+      exit(1);
+  }
+
+
+  if( waf_rules_file != NULL ) {
+    // Free all files struct
+      while ( it ) {
+          it = it->next;
+          free ( waf_rules_file->file );
+          free ( waf_rules_file );
+          waf_rules_file = it;
+      }
+      waf_rules_file = NULL;
+  }
+  bef_file = NULL;
+
+  regcomp(&WafRules, "^[ \t]*WafRules[ \t]+\"(.+)\"[ \t]*$", REG_ICASE | REG_NEWLINE | REG_EXTENDED);
+
+  conf_init(conf_name);
+
+  while(conf_fgets(lin, MAXBUF)) {
+    if(!regexec(&WafRules, lin, 4, matches, 0)) {
+       if ((file = (FILE_LIST *)malloc(sizeof (FILE_LIST)) ) == NULL ) {
+          conf_err("WAF config: out of memory - aborted");
+       }
+       else {
+          lin[matches[1].rm_eo] = '\0';
+          tmp = strdup(lin + matches[1].rm_so);
+          file->file = tmp;
+          file->next = NULL;
+
+          if(waf_rules_file == NULL)  {
+            bef_file = file;
+            waf_rules_file = file;
+          }
+          else {
+            bef_file->next = file;
+            bef_file=file;
+          }
+       }
+    }
+  }
+
+  regfree(&WafRules);
+  regfree(&Empty);
+  regfree(&Include);
+  regfree(&Include);
+  regfree(&Comment);
+
+}
+#endif

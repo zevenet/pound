@@ -1,3 +1,4 @@
+
 /*
  * Pound - the reverse-proxy load-balancer
  * Copyright (C) 2002-2010 Apsis GmbH
@@ -8,12 +9,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Pound is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -32,7 +33,8 @@ static char *h500 = "500 Internal Server Error",
             *h501 = "501 Not Implemented",
             *h503 = "503 Service Unavailable",
             *h400 = "400 Bad Request",
-            *h414 = "414 Request URI too long";
+            *h414 = "414 Request URI too long",
+            *h403 = "403 Request forbidden";
 
 static char *err_response = "HTTP/1.0 %s\r\nContent-Type: text/html\r\nContent-Length: %d\r\nExpires: now\r\nPragma: no-cache\r\nCache-control: no-cache,no-store\r\n\r\n%s";
 
@@ -124,12 +126,13 @@ copy_bin(BIO *const cl, BIO *const be, LONG cont, LONG *res_bytes, const int no_
  * Return 0 on success
  */
 static int
-get_line(BIO *const in, char *const buf, const int bufsize)
+get_line(BIO *const in, char *const buf, const int bufsize, int * out_line_size)
 {
     char    tmp;
     int     i, n_read;
 
-    memset(buf, 0, bufsize);
+//    memset(buf, 0, bufsize);
+    *out_line_size = 0;
     for(n_read = 0;;)
         switch(BIO_gets(in, buf + n_read, bufsize - n_read - 1)) {
         case -2:
@@ -142,6 +145,7 @@ get_line(BIO *const in, char *const buf, const int bufsize)
             for(i = n_read; i < bufsize && buf[i]; i++)
                 if(buf[i] == '\n' || buf[i] == '\r') {
                     buf[i] = '\0';
+                    *out_line_size = i;
                     return 0;
                 }
             if(i < bufsize) {
@@ -183,10 +187,10 @@ copy_chunks(BIO *const cl, BIO *const be, LONG *res_bytes, const int no_write, c
     char        buf[MAXBUF];
     LONG        cont, tot_size;
     regmatch_t  matches[2];
-    int         res;
+    int         res, line_len = 0;
 
     for(tot_size = 0L;;) {
-        if((res = get_line(cl, buf, MAXBUF)) < 0) {
+        if((res = get_line(cl, buf, MAXBUF, &line_len)) < 0) {
             logmsg(LOG_NOTICE, "(%lx) chunked read error: %s", pthread_self(), strerror(errno));
             return -1;
         } else if(res > 0)
@@ -220,7 +224,7 @@ copy_chunks(BIO *const cl, BIO *const be, LONG *res_bytes, const int no_write, c
         } else
             break;
         /* final CRLF */
-        if((res = get_line(cl, buf, MAXBUF)) < 0) {
+        if((res = get_line(cl, buf, MAXBUF, &line_len)) < 0) {
             logmsg(LOG_NOTICE, "(%lx) error after chunk: %s", pthread_self(), strerror(errno));
             return -5;
         } else if(res > 0) {
@@ -237,7 +241,7 @@ copy_chunks(BIO *const cl, BIO *const be, LONG *res_bytes, const int no_write, c
     }
     /* possibly trailing headers */
     for(;;) {
-        if((res = get_line(cl, buf, MAXBUF)) < 0) {
+        if((res = get_line(cl, buf, MAXBUF, &line_len)) < 0) {
             logmsg(LOG_NOTICE, "(%lx) error post-chunk: %s", pthread_self(), strerror(errno));
             return -7;
         } else if(res > 0)
@@ -390,7 +394,7 @@ static char **
 get_headers(BIO *const in, BIO *const cl, const LISTENER *lstn)
 {
     char    **headers, buf[MAXBUF];
-    int     res, n, has_eol;
+    int     res, n, has_eol, line_len;
 
     /* HTTP/1.1 allows leading CRLF */
     memset(buf, 0, MAXBUF);
@@ -415,17 +419,17 @@ get_headers(BIO *const in, BIO *const cl, const LISTENER *lstn)
         err_reply(cl, h500, lstn->err500);
         return NULL;
     }
-    if((headers[0] = (char *)malloc(MAXBUF)) == NULL) {
+    if((headers[0] = (char *)calloc(res + 2 , sizeof (char))) == NULL) {
         free_headers(headers);
         logmsg(LOG_WARNING, "(%lx) e500 header: out of memory", pthread_self());
         err_reply(cl, h500, lstn->err500);
         return NULL;
     }
-    memset(headers[0], 0, MAXBUF);
-    strncpy(headers[0], buf, MAXBUF - 1);
+//  memset(headers[0], 0, MAXBUF);
+    strncpy(headers[0], buf, res);
 
     for(n = 1; n < MAXHEADERS; n++) {
-        if(get_line(in, buf, MAXBUF)) {
+        if(get_line(in, buf, MAXBUF, &line_len)) {
             free_headers(headers);
             logmsg(LOG_WARNING, "(%lx) e500 can't read header", pthread_self());
             err_reply(cl, h500, lstn->err500);
@@ -433,14 +437,14 @@ get_headers(BIO *const in, BIO *const cl, const LISTENER *lstn)
         }
         if(!buf[0])
             return headers;
-        if((headers[n] = (char *)malloc(MAXBUF)) == NULL) {
+        if((headers[n] = (char *)calloc(line_len + 2, sizeof ( char ))) == NULL) {
             free_headers(headers);
             logmsg(LOG_WARNING, "(%lx) e500 header: out of memory", pthread_self());
             err_reply(cl, h500, lstn->err500);
             return NULL;
         }
-        memset(headers[n], 0, MAXBUF);
-        strncpy(headers[n], buf, MAXBUF - 1);
+//        memset(headers[n], 0, MAXBUF);
+        strncpy(headers[n], buf, line_len);
     }
 
     free_headers(headers);
@@ -504,15 +508,18 @@ log_bytes(char *res, const LONG cnt)
     return;
 }
 
+
 /* Cleanup code. This should really be in the pthread_cleanup_push, except for bugs in some implementations */
 // if(count_backend->connections > 0)
 #define clean_all() {   \
-	if(flagCount) {decrease_backend_conn(cur_backend); }	\
+    if(flagCount) {decrease_backend_conn(cur_backend); } \
     if(ssl != NULL) { BIO_ssl_shutdown(cl); } \
     if(be != NULL) { BIO_flush(be); BIO_reset(be); BIO_free_all(be); be = NULL; } \
     if(cl != NULL) { BIO_flush(cl); BIO_reset(cl); BIO_free_all(cl); cl = NULL; } \
     if(x509 != NULL) { X509_free(x509); x509 = NULL; } \
     if(ssl != NULL) { ERR_clear_error(); ERR_remove_state(0); } \
+    if(body_buff != NULL) {free(body_buff); body_buff = NULL; } \
+    waf_del_transaction(&modsec_transaction); \
 }
 
 
@@ -525,20 +532,21 @@ increase_backend_conn(BACKEND *backend)
 		logmsg(LOG_WARNING, "increase_backend_conn() lock: %s", strerror(ret_val));
 	backend->connections++;
 	if(ret_val = pthread_mutex_unlock(&backend->mut))
-                logmsg(LOG_WARNING, "increase_backend_conn() unlock: %s", strerror(ret_val));
+		logmsg(LOG_WARNING, "increase_backend_conn() unlock: %s", strerror(ret_val));
 }
 
 void
 decrease_backend_conn(BACKEND *backend)
 {
 	int ret_val;
-	
+
 	if(ret_val = pthread_mutex_lock(&backend->mut))
 		logmsg(LOG_WARNING, "increase_backend_conn() lock: %s", strerror(ret_val));
 	backend->connections--;
 	if(ret_val = pthread_mutex_unlock(&backend->mut))
-                logmsg(LOG_WARNING, "increase_backend_conn() unlock: %s", strerror(ret_val));
+		logmsg(LOG_WARNING, "increase_backend_conn() unlock: %s", strerror(ret_val));
 }
+
 
 
 /*
@@ -548,6 +556,13 @@ void
 do_http(thr_arg *arg)
 {
     int                 cl_11, be_11, res, chunked, n, sock, no_cont, skip, conn_closed, force_10, sock_proto, is_rpc, exp_cont, read_cl_body;
+    int                 headers_num = 0, waf_body=0, body_size;
+#if WAF
+    int                 waf_sock=-1;
+    int                 waf_code=200;
+    WAF_ACTION          waf_action=ALLOW;
+    Transaction         *modsec_transaction = NULL;
+#endif
     int			flagCount=0;
     LISTENER            *lstn;
     SERVICE             *svc;
@@ -558,7 +573,10 @@ do_http(thr_arg *arg)
     X509                *x509;
     char                request[MAXBUF], response[MAXBUF], buf[MAXBUF], url[MAXBUF], loc_path[MAXBUF], **headers,
                         headers_ok[MAXHEADERS], v_host[MAXBUF], referer[MAXBUF], u_agent[MAXBUF], u_name[MAXBUF],
-                        caddr[MAXBUF], req_time[LOG_TIME_SIZE], s_res_bytes[LOG_BYTES_SIZE], *mh, buf_log_tag[MAXBUF];
+                        caddr[MAXADDRBUFF], req_time[LOG_TIME_SIZE], s_res_bytes[LOG_BYTES_SIZE], *mh, buf_log_tag[MAXBUF];
+    char                *body_buff=NULL;
+    char                ip_ori[MAXADDRBUFF], ip_dst[MAXADDRBUFF];
+    int                 port_ori, port_dst;
     SSL                 *ssl, *be_ssl;
     LONG                cont, res_bytes;
     regmatch_t          matches[4];
@@ -635,7 +653,7 @@ do_http(thr_arg *arg)
         if(BIO_do_handshake(cl) <= 0) {
             if ((ERR_GET_REASON(ERR_peek_error()) == SSL_R_HTTP_REQUEST)
             && (ERR_GET_LIB(ERR_peek_error()) == ERR_LIB_SSL)) {
-                addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
                 if (lstn->nossl_redir) {
                     logmsg(LOG_NOTICE, "(%lx) errNoSsl from %s redirecting to \"%s\"", pthread_self(), caddr, lstn->nossl_url);
                     redirect_reply(oldcl, lstn->nossl_url, lstn->nossl_redir);
@@ -650,7 +668,7 @@ do_http(thr_arg *arg)
         } else {
             if((x509 = SSL_get_peer_certificate(ssl)) != NULL && lstn->clnt_check < 3
             && SSL_get_verify_result(ssl) != X509_V_OK) {
-                addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
                 logmsg(LOG_NOTICE, "Bad certificate from %s", caddr);
                 X509_free(x509);
                 BIO_reset(cl);
@@ -686,7 +704,7 @@ do_http(thr_arg *arg)
         if((headers = get_headers(cl, cl, lstn)) == NULL) {
             if(!cl_11) {
                 if(errno) {
-                    addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                    addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
                     logmsg(LOG_NOTICE, "(%lx) error read from %s: %s", pthread_self(), caddr, strerror(errno));
                     /* err_reply(cl, h500, lstn->err500); */
                 }
@@ -707,7 +725,7 @@ do_http(thr_arg *arg)
             else if(!strncasecmp(request + matches[1].rm_so, "RPC_OUT_DATA", matches[1].rm_eo - matches[1].rm_so))
                 is_rpc = 0;
         } else {
-            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+            addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
             logmsg(LOG_WARNING, "(%lx) e501 bad request \"%s\" from %s", pthread_self(), request, caddr);
             err_reply(cl, h501, lstn->err501);
             free_headers(headers);
@@ -718,7 +736,7 @@ do_http(thr_arg *arg)
         n = cpURL(url, request + matches[2].rm_so, matches[2].rm_eo - matches[2].rm_so);
         if(n != strlen(url)) {
             /* the URL probably contained a %00 aka NULL - which we don't allow */
-            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+            addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
             logmsg(LOG_NOTICE, "(%lx) e501 URL \"%s\" (contains NULL) from %s", pthread_self(), url, caddr);
             err_reply(cl, h501, lstn->err501);
             free_headers(headers);
@@ -726,7 +744,7 @@ do_http(thr_arg *arg)
             return;
         }
         if(lstn->has_pat && regexec(&lstn->url_pat,  url, 0, NULL, 0)) {
-            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+            addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
             logmsg(LOG_NOTICE, "(%lx) e501 bad URL \"%s\" from %s", pthread_self(), url, caddr);
             err_reply(cl, h501, lstn->err501);
             free_headers(headers);
@@ -773,16 +791,16 @@ do_http(thr_arg *arg)
             case HEADER_EXPECT:
                  // By Zen Load Balancer: Supported "Expect: 100-continue" headers
                 if(!strcasecmp("100-continue", buf)) {
-		    if (ignore_100 == 1) {
-			headers_ok[n] = 0;
-		    } else {
-			exp_cont = 1;
-		    }
-		}
+                    if (ignore_100 == 1) {
+                        headers_ok[n] = 0;
+                    } else {
+                        exp_cont = 1;
+                    }
+                }
                 break;
             case HEADER_ILLEGAL:
                 if(lstn->log_level > 0) {
-                    addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                    addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
                     logmsg(LOG_NOTICE, "(%lx) bad header from %s (%s)", pthread_self(), caddr, headers[n]);
                 }
                 headers_ok[n] = 0;
@@ -827,9 +845,12 @@ do_http(thr_arg *arg)
             }
         }
 
+        // number of headers
+        headers_num = n;
+
         /* possibly limited request size */
         if(lstn->max_req > L0 && cont > L0 && cont > lstn->max_req && is_rpc != 1) {
-            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+            addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
             logmsg(LOG_NOTICE, "(%lx) e501 request too large (%ld) from %s", pthread_self(), cont, caddr);
             err_reply(cl, h501, lstn->err501);
             free_headers(headers);
@@ -848,7 +869,7 @@ do_http(thr_arg *arg)
 
         /* check that the requested URL still fits the old back-end (if any) */
         if((svc = get_service(lstn, url, &headers[1])) == NULL) {
-            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+            addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
             logmsg(LOG_NOTICE, "(%lx) e503 no service \"%s\" from %s %s", pthread_self(), request, caddr, v_host[0]? v_host: "-");
             err_reply(cl, h503, lstn->err503);
             free_headers(headers);
@@ -858,19 +879,19 @@ do_http(thr_arg *arg)
 
         /* get a backend of the service */
         if((backend = get_backend(svc, &from_host, url, &headers[1],lstn->log_level)) == NULL) {
-            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+            addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
             logmsg(LOG_NOTICE, "service %s, (%lx) e503 no back-end \"%s\" from %s %s", svc->name, pthread_self(), request, caddr, v_host[0]? v_host: "-");
             err_reply(cl, h503, lstn->err503);
             free_headers(headers);
             clean_all();
             return;
         }
-        
+
         /* get a tag for logs with backend and service */
         get_bk_and_srv_string( buf_log_tag, svc, backend );
-        
+
         if(be != NULL && backend != cur_backend) {
-			
+
             BIO_reset(be);
             BIO_free_all(be);
             be = NULL;
@@ -919,7 +940,7 @@ do_http(thr_arg *arg)
                  */
                 old_backend = backend;
                 if((backend = get_backend(svc, &from_host, url, &headers[1],lstn->log_level)) == NULL || backend == old_backend) {
-                    addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                    addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
                     logmsg(LOG_NOTICE, "%s (%lx) e503 no back-end \"%s\" from %s", buf_log_tag, pthread_self(), request, caddr);
                     err_reply(cl, h503, lstn->err503);
                     free_headers(headers);
@@ -931,7 +952,7 @@ do_http(thr_arg *arg)
                 get_bk_and_srv_string( buf_log_tag, svc, backend );
 
                 continue;
-                
+
             }
             if(sock_proto == PF_INET || sock_proto == PF_INET6) {
                 n = 1;
@@ -947,7 +968,7 @@ do_http(thr_arg *arg)
                 setsockopt(sock, SOL_TCP, TCP_NODELAY, (void *)&n, sizeof(n));
             }
             if((be = BIO_new_socket(sock, 1)) == NULL) {
-                logmsg(LOG_WARNING, "%s (%lx) e503 BIO_new_socket server failed", pthread_self());
+                logmsg(LOG_WARNING, "%s (%lx) e503 BIO_new_socket server failed", buf_log_tag, pthread_self());
                 shutdown(sock, 2);
                 close(sock);
                 err_reply(cl, h503, lstn->err503);
@@ -964,7 +985,7 @@ do_http(thr_arg *arg)
 
             if(backend->ctx != NULL) {
                 if((be_ssl = SSL_new(backend->ctx)) == NULL) {
-                    logmsg(LOG_WARNING, "%s (%lx) be z: failed", pthread_self());
+                    logmsg(LOG_WARNING, "%s (%lx) be z: failed", buf_log_tag, pthread_self());
                     err_reply(cl, h503, lstn->err503);
                     free_headers(headers);
                     clean_all();
@@ -972,7 +993,7 @@ do_http(thr_arg *arg)
                 }
                 SSL_set_bio(be_ssl, be, be);
                 if((bb = BIO_new(BIO_f_ssl())) == NULL) {
-                    logmsg(LOG_WARNING, "%s (%lx) BIO_new(Bio_f_ssl()) failed", pthread_self());
+                    logmsg(LOG_WARNING, "%s (%lx) BIO_new(Bio_f_ssl()) failed", buf_log_tag, pthread_self());
                     err_reply(cl, h503, lstn->err503);
                     free_headers(headers);
                     clean_all();
@@ -992,7 +1013,7 @@ do_http(thr_arg *arg)
                 }
             }
             if((bb = BIO_new(BIO_f_buffer())) == NULL) {
-                logmsg(LOG_WARNING, "%s (%lx) e503 BIO_new(buffer) server failed", pthread_self());
+                logmsg(LOG_WARNING, "%s (%lx) e503 BIO_new(buffer) server failed", buf_log_tag, pthread_self());
                 err_reply(cl, h503, lstn->err503);
                 free_headers(headers);
                 clean_all();
@@ -1002,26 +1023,23 @@ do_http(thr_arg *arg)
             BIO_set_close(bb, BIO_CLOSE);
             be = BIO_push(bb, be);
         }
-     
+
         // add new connection
-        if( !flagCount )
-        {
+        if( !flagCount ) {
           increase_backend_conn(backend);
           flagCount = 1;
          }
-         else
-         {
-			 // a new backend will be assigned
-			if ( cur_backend != backend)
-			{
-				increase_backend_conn(backend);
-				decrease_backend_conn(cur_backend);
-			}
-         }
+         else {
+          // a new backend will be assigned
+          if ( cur_backend != backend) {
+              increase_backend_conn(backend);
+              decrease_backend_conn(cur_backend);
+          }
+        }
 
-		/* CONNECION STABLISHED */
+        /* CONNECION STABLISHED */
         cur_backend = backend;
-        
+
         /* if we have anything but a BACK_END we close the channel */
         if(be != NULL && cur_backend->be_type) {
           BIO_reset(be);
@@ -1029,18 +1047,58 @@ do_http(thr_arg *arg)
           be = NULL;
         }
 
+// check WAF
+#if WAF
+        if (waf_rules) {
+          if (modsec_transaction)
+            waf_del_transaction(modsec_transaction);
+          waf_create_transaction(&modsec_transaction, waf_api, waf_rules);
+
+          // add conexion info to modsecurity
+          addr2IpAndPort(ip_ori, &port_ori, MAXADDRBUFF - 1, &from_host);
+          addr2IpAndPort(ip_dst, &port_dst, MAXADDRBUFF - 1, &lstn->addr);
+          msc_process_connection(modsec_transaction, ip_ori, port_ori,ip_dst, port_dst);
+
+          waf_add_req_head(modsec_transaction, headers, headers_num);
+
+          if (waf_body_enabled(body_max_size, buf_log_tag, cont, chunked, is_rpc)) {
+            waf_body=1;
+            body_size=read_body(cl, &body_buff, cont);
+            msc_append_request_body(modsec_transaction, body_buff, body_size);
+            msc_process_request_body(modsec_transaction);
+          }
+
+          waf_action = waf_resolution(modsec_transaction, &waf_code, &buf, buf_log_tag);
+          if (waf_action != ALLOW) {
+              if (waf_action == BLOCK)
+              err_reply(cl, h403, "replied forbidden");
+            //   err_reply(cl, h503, lstn->err503);
+
+            else if (waf_action == REDIRECTION)
+              redirect_reply(cl, buf, waf_code);
+
+            // close conn
+            logmsg(LOG_INFO, "%s (%lx) WAF denied a request from %s", buf_log_tag, pthread_self(), ip_ori);
+
+            free_headers(headers);
+            clean_all();
+            return;
+          }
+        }
+#endif
+
         /* send the request */
         if(cur_backend->be_type == 0) {
             for(n = 0; n < MAXHEADERS && headers[n]; n++) {
-            	if(!headers_ok[n])
-            		continue;
+                if(!headers_ok[n])
+                        continue;
                 /* this is the earliest we can check for Destination - we had no back-end before */
                 if(lstn->rewr_dest && check_header(headers[n], buf) == HEADER_DESTINATION) {
                     if(regexec(&LOCATION, buf, 4, matches, 0)) {
                         logmsg(LOG_NOTICE, "%s (%lx) Can't parse Destination %s", buf_log_tag, pthread_self(), buf);
                         break;
                     }
-                    str_be(caddr, MAXBUF - 1, cur_backend);
+                    str_be(caddr, MAXADDRBUFF - 1, cur_backend);
                     strcpy(loc_path, buf + matches[3].rm_so);
                     snprintf(buf, MAXBUF, "Destination: http://%s%s", caddr, loc_path);
                     free(headers[n]);
@@ -1098,8 +1156,9 @@ do_http(thr_arg *arg)
             }
 
             if(lstn->clnt_check > 0 && x509 != NULL && (bb = BIO_new(BIO_s_mem())) != NULL) {
+                int line_len = 0;
                 X509_NAME_print_ex(bb, X509_get_subject_name(x509), 8, XN_FLAG_ONELINE & ~ASN1_STRFLGS_ESC_MSB);
-                get_line(bb, buf, MAXBUF);
+                get_line(bb, buf, MAXBUF, &line_len);
                 if(BIO_printf(be, "X-SSL-Subject: %s\r\n", buf) <= 0) {
                     str_be(buf, MAXBUF - 1, cur_backend);
                     end_req = cur_time();
@@ -1112,7 +1171,7 @@ do_http(thr_arg *arg)
                 }
 
                 X509_NAME_print_ex(bb, X509_get_issuer_name(x509), 8, XN_FLAG_ONELINE & ~ASN1_STRFLGS_ESC_MSB);
-                get_line(bb, buf, MAXBUF);
+                get_line(bb, buf, MAXBUF, &line_len);
                 if(BIO_printf(be, "X-SSL-Issuer: %s\r\n", buf) <= 0) {
                     str_be(buf, MAXBUF - 1, cur_backend);
                     end_req = cur_time();
@@ -1125,7 +1184,7 @@ do_http(thr_arg *arg)
                 }
 
                 ASN1_TIME_print(bb, X509_get_notBefore(x509));
-                get_line(bb, buf, MAXBUF);
+                get_line(bb, buf, MAXBUF, &line_len);
                 if(BIO_printf(be, "X-SSL-notBefore: %s\r\n", buf) <= 0) {
                     str_be(buf, MAXBUF - 1, cur_backend);
                     end_req = cur_time();
@@ -1138,7 +1197,7 @@ do_http(thr_arg *arg)
                 }
 
                 ASN1_TIME_print(bb, X509_get_notAfter(x509));
-                get_line(bb, buf, MAXBUF);
+                get_line(bb, buf, MAXBUF, &line_len);
                 if(BIO_printf(be, "X-SSL-notAfter: %s\r\n", buf) <= 0) {
                     str_be(buf, MAXBUF - 1, cur_backend);
                     end_req = cur_time();
@@ -1196,7 +1255,7 @@ do_http(thr_arg *arg)
                 }
 #else
                 PEM_write_bio_X509(bb, x509);
-                get_line(bb, buf, MAXBUF);
+                get_line(bb, buf, MAXBUF, &line_len);
                 if(BIO_printf(be, "X-SSL-certificate: %s\r\n", buf) <= 0) {
                     str_be(buf, MAXBUF - 1, cur_backend);
                     end_req = cur_time();
@@ -1207,7 +1266,7 @@ do_http(thr_arg *arg)
                     clean_all();
                     return;
                 }
-                while(get_line(bb, buf, MAXBUF) == 0) {
+                while(get_line(bb, buf, MAXBUF, &line_len) == 0) {
                     if(BIO_printf(be, "\t%s\r\n", buf) <= 0) {
                         str_be(buf, MAXBUF - 1, cur_backend);
                         end_req = cur_time();
@@ -1225,7 +1284,7 @@ do_http(thr_arg *arg)
         }
         /* put additional client IP header */
         if(cur_backend->be_type == 0) {
-            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+            addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
             BIO_printf(be, "X-Forwarded-For: %s\r\n", caddr);
 
             /* final CRLF */
@@ -1233,7 +1292,7 @@ do_http(thr_arg *arg)
         }
 
         /* headers from client were sent to backend; if there was an 'Expect: 100-continue' we wait for the backend
-         * to respond and forward this to the client before handling the body of the request. 
+         * to respond and forward this to the client before handling the body of the request.
          * If server does not reply with 'Continue' we'll close connections and bail out without reading the request.
          * Note that since we have no timeouts, we'll keep waiting for the server reply.
          */
@@ -1241,14 +1300,14 @@ do_http(thr_arg *arg)
         //headers = NULL;            /* headers will be read if exp_cont seen */
         read_cl_body = 1;          /* will be reset to 0 if exp_cont and '100 Continue' not rx'd, to skip */
 
-        if (exp_cont) {              /* 'Expect: 100-continue' header seen! */
+	if (exp_cont) {              /* 'Expect: 100-continue' header seen! */
 		logmsg(LOG_INFO, "Managing connection Expect 100-continue");
 
-		/* flush to the back-end */
+                /* flush to the back-end */
         if(cur_backend->be_type == 0 && BIO_flush(be) != 1) {
             str_be(buf, MAXBUF - 1, cur_backend);
             end_req = cur_time();
-            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+            addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
             logmsg(LOG_NOTICE, "%s (%lx) e500 for %s error flush to %s/%s: %s (%.3f sec)",
                 buf_log_tag, pthread_self(), caddr, buf, request, strerror(errno), (end_req - start_req) / 1000000.0);
             err_reply(cl, h500, lstn->err500);
@@ -1259,7 +1318,7 @@ do_http(thr_arg *arg)
             if((headers = get_headers(be, cl, lstn)) == NULL) {
                 str_be(buf, MAXBUF - 1, cur_backend);
                 end_req = cur_time();
-                addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
                 logmsg(LOG_NOTICE, "%s (%lx) e500 for %s response error read headers from %s/%s: %s (%.3f secs)",
                     buf_log_tag, pthread_self(), caddr, buf, request, strerror(errno), (end_req - start_req) / 1000000.0);
                 err_reply(cl, h500, lstn->err500);
@@ -1278,7 +1337,7 @@ do_http(thr_arg *arg)
                     /* logmsg(LOG_NOTICE, "%s (%lx) sending '%s' to client", buf_log_tag, pthread_self(), headers[n]); */
                     if(BIO_printf(cl, "%s\r\n", headers[n]) <= 0) {
                         if(errno) {
-                            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                            addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
                             logmsg(LOG_NOTICE, "%s (%lx) error write headers to %s: %s", buf_log_tag, pthread_self(), caddr, strerror(errno));
                         }
                         free_headers(headers);
@@ -1293,7 +1352,7 @@ do_http(thr_arg *arg)
                 BIO_puts(cl, "\r\n");
                 if(BIO_flush(cl) != 1) {
                     if(errno) {
-                        addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                        addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
                         logmsg(LOG_NOTICE, "%s (%lx) error flush headers to %s: %s", buf_log_tag, pthread_self(), caddr, strerror(errno));
                     }
                     clean_all();
@@ -1304,12 +1363,24 @@ do_http(thr_arg *arg)
 
         if (read_cl_body) {   /* read client body if '100 Continue' rx'd or no 'Expect: 100-continue' seen */
 
-        if(cl_11 && chunked) {
+        // if body has been read, it was saved in a buffer
+        if(waf_body) {
+            if(BIO_write(be, body_buff, body_size) != body_size) {
+                if(errno)
+                    logmsg(LOG_NOTICE, "%s (%lx) error write request pending: %s",
+                        buf_log_tag, pthread_self(), strerror(errno));
+                clean_all();
+                pthread_exit(NULL);
+            }
+            free(body_buff);
+            body_buff=NULL;
+            waf_body=0;
+        } else if(cl_11 && chunked) {
             /* had Transfer-encoding: chunked so read/write all the chunks (HTTP/1.1 only) */
             if(copy_chunks(cl, be, NULL, cur_backend->be_type, lstn->max_req)) {
                 str_be(buf, MAXBUF - 1, cur_backend);
                 end_req = cur_time();
-                addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
                 logmsg(LOG_NOTICE, "%s (%lx) e500 for %s copy_chunks to %s/%s (%.3f sec)",
                     buf_log_tag, pthread_self(), caddr, buf, request, (end_req - start_req) / 1000000.0);
                 err_reply(cl, h500, lstn->err500);
@@ -1321,7 +1392,7 @@ do_http(thr_arg *arg)
             if(copy_bin(cl, be, cont, NULL, cur_backend->be_type)) {
                 str_be(buf, MAXBUF - 1, cur_backend);
                 end_req = cur_time();
-                addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
                 logmsg(LOG_NOTICE, "%s (%lx) e500 for %s error copy client cont to %s/%s: %s (%.3f sec)",
                     buf_log_tag, pthread_self(), caddr, buf, request, strerror(errno), (end_req - start_req) / 1000000.0);
                 err_reply(cl, h500, lstn->err500);
@@ -1392,14 +1463,14 @@ do_http(thr_arg *arg)
                     BIO_flush(be);
                 }
             }
-	 } 
-	}
+         }
+        }
 
         /* flush to the back-end */
         if(cur_backend->be_type == 0 && BIO_flush(be) != 1) {
             str_be(buf, MAXBUF - 1, cur_backend);
             end_req = cur_time();
-            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+            addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
             logmsg(LOG_NOTICE, "%s (%lx) e500 for %s error flush to %s/%s: %s (%.3f sec)",
                 buf_log_tag, pthread_self(), caddr, buf, request, strerror(errno), (end_req - start_req) / 1000000.0);
             err_reply(cl, h500, lstn->err500);
@@ -1471,7 +1542,7 @@ do_http(thr_arg *arg)
                 *chptr++='\0';
             }
             redirect_reply(cl, buf, cur_backend->be_type);
-            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+            addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
             switch(lstn->log_level) {
             case 0:
                 break;
@@ -1506,7 +1577,7 @@ do_http(thr_arg *arg)
             memset(s_res_bytes, 0, LOG_BYTES_SIZE);
             /* actual request length */
             log_bytes(s_res_bytes, res_bytes);
-            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+            addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
             str_be(buf, MAXBUF - 1, cur_backend);
             switch(lstn->log_level) {
             case 0:
@@ -1549,32 +1620,32 @@ do_http(thr_arg *arg)
 
 	/* we'll arrive directly here if '100 Continue' was expected but not received; headers will be valid then */
 	/* get the response */
-        for(skip = 1; skip;) {
-            if((headers = get_headers(be, cl, lstn)) == NULL) {
-                str_be(buf, MAXBUF - 1, cur_backend);
-                end_req = cur_time();
-                addr2str(caddr, MAXBUF - 1, &from_host, 1);
-                logmsg(LOG_NOTICE, "%s (%lx) e500 for %s response error read from %s/%s: %s (%.3f secs)",
-                    buf_log_tag, pthread_self(), caddr, buf, request, strerror(errno), (end_req - start_req) / 1000000.0);
-                err_reply(cl, h500, lstn->err500);
-                clean_all();
-                return;
-            }
+	for(skip = 1; skip;) {
+	    if((headers = get_headers(be, cl, lstn)) == NULL) {
+		str_be(buf, MAXBUF - 1, cur_backend);
+		end_req = cur_time();
+		addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
+		logmsg(LOG_NOTICE, "%s (%lx) e500 for %s response error read from %s/%s: %s (%.3f secs)",
+		    buf_log_tag, pthread_self(), caddr, buf, request, strerror(errno), (end_req - start_req) / 1000000.0);
+		err_reply(cl, h500, lstn->err500);
+		clean_all();
+		return;
+	    }
 
             strncpy(response, headers[0], MAXBUF);
             be_11 = (response[7] == '1');
             /* responses with code 100 are never passed back to the client */
-	    if (exp_cont == 1){
-		skip = 0;  /* was: !regexec(&RESP_SKIP, response, 0, NULL, 0); to ignore 100_continue */
+            if (exp_cont == 1){
+                skip = 0;  /* was: !regexec(&RESP_SKIP, response, 0, NULL, 0); to ignore 100_continue */
             /* some response codes (1xx, 204, 304) have no content */
-	    } else {
-		skip = !regexec(&RESP_SKIP, response, 0, NULL, 0);
-	    }
+            } else {
+                skip = !regexec(&RESP_SKIP, response, 0, NULL, 0);
+            }
             if(!no_cont && !regexec(&RESP_IGN, response, 0, NULL, 0))
                 no_cont = 1;
 
             for(n = 0; n < MAXHEADERS; n++)
-            	headers_ok[n] = 1;
+                headers_ok[n] = 1;
             for(chunked = 0, cont = -1L, n = 1; n < MAXHEADERS && headers[n]; n++) {
                 switch(check_header(headers[n], buf)) {
                 case HEADER_CONNECTION:
@@ -1626,24 +1697,63 @@ do_http(thr_arg *arg)
                     }
                     break;
                 case HEADER_STRICT_TRANSPORT_SECURITY:
-                	/* enforce pound's STS header */
-                	if(svc->sts >= 0)
-                		headers_ok[n] = 0;
-                	break;
+                        /* enforce pound's STS header */
+                        if(svc->sts >= 0)
+                                headers_ok[n] = 0;
+                        break;
                 }
             }
 
             /* possibly record session information (only for cookies/header) */
             upd_session(svc, &headers[1], cur_backend);
 
+            headers_num = n;
+
+#if WAF
+            //waf response
+            if (waf_rules) {
+
+              waf_add_resp_head(modsec_transaction, headers, headers_num);
+
+              if (waf_body_enabled(body_max_size, buf_log_tag, cont, chunked, is_rpc)) {
+                waf_body=1;
+                body_size=read_body(be, &body_buff, cont);
+                msc_append_response_body(modsec_transaction,body_buff, body_size);
+                msc_process_response_body(modsec_transaction);
+              }
+
+              waf_action = waf_resolution(modsec_transaction,&waf_code, &buf, buf_log_tag);
+              if (waf_action != ALLOW) {
+                // Reply error
+                  if (waf_action == BLOCK)
+                  err_reply(cl, h403, "replied forbidden");
+                //   err_reply(cl, h503, lstn->err503);
+
+                else if (waf_action == REDIRECTION)
+                  redirect_reply(cl, buf, waf_code);
+
+                // close conn
+                logmsg(LOG_INFO, "%s (%lx) replied by WAF", buf_log_tag, pthread_self());
+
+                free_headers(headers);
+                clean_all();
+                return;
+              }
+              else
+                if (!msc_process_logging(modsec_transaction)) // log if any error was found
+                  logmsg(LOG_WARNING, "%s (%lx) WAF, error processing the log", buf_log_tag, pthread_self());
+            }
+            waf_del_transaction(&modsec_transaction);
+#endif
+
             /* send the response */
             if(!skip)
                 for(n = 0; n < MAXHEADERS && headers[n]; n++) {
-                	if(!headers_ok[n])
-                		continue;
+                        if(!headers_ok[n])
+                                continue;
                     if(BIO_printf(cl, "%s\r\n", headers[n]) <= 0) {
                         if(errno) {
-                            addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                            addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
                             logmsg(LOG_NOTICE, "%s (%lx) error write to %s: %s", buf_log_tag, pthread_self(), caddr, strerror(errno));
                         }
                         free_headers(headers);
@@ -1653,7 +1763,7 @@ do_http(thr_arg *arg)
                 }
             free_headers(headers);
             if(!skip && ssl && svc->sts >= 0)
-            	BIO_printf(cl, "Strict-Transport-Security: max-age=%d\r\n", svc->sts);
+                BIO_printf(cl, "Strict-Transport-Security: max-age=%d\r\n", svc->sts);
 
             if(!skip && cur_backend->be_type == 0 && svc->becookie && cur_backend->bekey) {
                 char *cp = buf;
@@ -1694,7 +1804,7 @@ do_http(thr_arg *arg)
                 BIO_puts(cl, "\r\n");
             if(BIO_flush(cl) != 1) {
                 if(errno) {
-                    addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                    addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
                     logmsg(LOG_NOTICE, "%s (%lx) error flush headers to %s: %s", buf_log_tag, pthread_self(), caddr, strerror(errno));
                 }
                 clean_all();
@@ -1702,6 +1812,19 @@ do_http(thr_arg *arg)
             }
 
             if(!no_cont) {
+                // if body has been read, it was saved in a buffer
+                if(waf_body) {
+                    if(BIO_write(cl, body_buff, body_size) != body_size) {
+                        if(errno)
+                            logmsg(LOG_NOTICE, "%s (%lx) error write request pending: %s",
+                                buf_log_tag, pthread_self(), strerror(errno));
+                        clean_all();
+                        pthread_exit(NULL);
+                    }
+                    free(body_buff);
+                    body_buff=NULL;
+                    waf_body=0;
+                } else
                 /* ignore this if request was HEAD or similar */
                 if(be_11 && chunked) {
                     /* had Transfer-encoding: chunked so read/write all the chunks (HTTP/1.1 only) */
@@ -1780,7 +1903,7 @@ do_http(thr_arg *arg)
                     if(is_rpc == 0 && res_bytes > 0L)
                         break;
                     if(errno) {
-                        addr2str(caddr, MAXBUF - 1, &from_host, 1);
+                        addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
                         logmsg(LOG_NOTICE, "%s (%lx) error final flush to %s: %s", buf_log_tag, pthread_self(), caddr, strerror(errno));
                     }
                     clean_all();
@@ -1794,7 +1917,7 @@ do_http(thr_arg *arg)
         /* log what happened */
         memset(s_res_bytes, 0, LOG_BYTES_SIZE);
         log_bytes(s_res_bytes, res_bytes);
-        addr2str(caddr, MAXBUF - 1, &from_host, 1);
+        addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
         if(anonymise) {
             char    *last;
 

@@ -48,6 +48,7 @@ usage(const char *arg0)
     fprintf(stderr, "\tentering the command without arguments lists the current configuration.\n");
     fprintf(stderr, "\tthe -X flag results in XML output.\n");
     fprintf(stderr, "\tthe -H flag shows symbolic host names instead of addresses.\n");
+    fprintf(stderr, "\tthe -R flag reload the WAF configation from the configuation file.\n");
     exit(1);
 }
 
@@ -226,6 +227,7 @@ main(const int argc, char **argv)
     int         sock, n_lstn, n_svc, n_be, n_sess, i;
     char        *arg0, *sock_name, buf[KEY_SIZE + 1];
     int         c_opt, en_lst, de_lst, en_svc, de_svc, en_be, de_be, a_sess, d_sess, f_sess, is_set;
+    int         reload_waf=0;
     LISTENER    lstn;
     SERVICE     svc;
     BACKEND     be;
@@ -238,7 +240,7 @@ main(const int argc, char **argv)
     memset(&cmd, 0, sizeof(cmd));
     opterr = 0;
     i = 0;
-    while(!i && (c_opt = getopt(argc, argv, "c:LlSsBbNnXH")) > 0)
+    while(!i && (c_opt = getopt(argc, argv, "c:LlSsBbNnXHR")) > 0)
         switch(c_opt) {
         case 'c':
             sock_name = optarg;
@@ -246,6 +248,11 @@ main(const int argc, char **argv)
         case 'X':
             xml_out = 1;
             break;
+#if WAF
+          case 'R':
+              reload_waf = 1;
+              break;
+#endif
         case 'L':
             if(is_set)
                 usage(arg0);
@@ -359,6 +366,9 @@ main(const int argc, char **argv)
             usage(arg0);
         cmd.cmd = CTRL_LST;
     }
+
+    if (reload_waf)
+      cmd.cmd = REL_WAF;
 
     sock = get_sock(sock_name);
     write(sock, &cmd, sizeof(cmd));

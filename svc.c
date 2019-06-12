@@ -8,12 +8,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Pound is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -25,7 +25,7 @@
  * EMail: roseg@apsis.ch
  */
 
-#include 	"svc.h"
+#include "svc.h"
 
 
 #ifndef LHASH_OF
@@ -61,8 +61,9 @@ t_add(SERVICE *const srv, const char *key, const void *content, const size_t con
     if(timestamp != 0)
         t->last_acc = timestamp;
     else
-    	t->last_acc = time(NULL);
-    
+        t->last_acc = time(NULL);
+
+    //TODO:: NOTIFY ZLB
     t->listener = srv->listener_key_id;
     t->service = srv->key_id;
     if(sync_is_enabled)
@@ -100,7 +101,8 @@ t_find(SERVICE  * const srv, char *const key)
 
        if(res->last_acc != time(NULL))
        {
-           res->last_acc = time(NULL);
+            res->last_acc = time(NULL);
+          //TODO:: SEND UPDATE
            if(sync_is_enabled)
               notify(SESS_UPDATE,srv->listener_key_id,srv->key_id,res->key,res->content, (unsigned int)(res->last_acc));
        }
@@ -123,6 +125,7 @@ t_remove(SERVICE * const srv, char *const key)
 #else
     if((res = (TABNODE *)lh_delete(tab, &t)) != NULL) {
 #endif
+        //TODO: NOTIFY ZLB
         if(sync_is_enabled)
             notify(SESS_DELETE,srv->listener_key_id,srv->key_id,res->key,res->content,(unsigned int)(res->last_acc));
 
@@ -253,18 +256,18 @@ logmsg(const int priority, const char *fmt, ...)
     vsnprintf(buf, MAXBUF, fmt, ap);
     va_end(ap);
     if(log_facility == -1) {
-		if (name)
-			fprintf((priority == LOG_INFO || priority == LOG_DEBUG)? stdout: stderr, "%s, %s\n", name, buf);
-		else
-			fprintf((priority == LOG_INFO || priority == LOG_DEBUG)? stdout: stderr, "%s\n", buf);
+                if (name)
+                        fprintf((priority == LOG_INFO || priority == LOG_DEBUG)? stdout: stderr, "%s, %s\n", name, buf);
+                else
+                        fprintf((priority == LOG_INFO || priority == LOG_DEBUG)? stdout: stderr, "%s\n", buf);
     } else {
         if(print_log)
             printf("%s\n", buf);
         else
             if (name)
-				syslog(log_facility | priority, "%s, %s\n", name, buf);
-			else
-				syslog(log_facility | priority, "%s\n", buf);
+                                syslog(log_facility | priority, "%s, %s\n", name, buf);
+                        else
+                                syslog(log_facility | priority, "%s\n", buf);
     }
     return;
 }
@@ -316,14 +319,72 @@ get_bk_and_srv_string (char *buf, SERVICE *srv, BACKEND *backend)
 		logmsg(LOG_WARNING, "(%lx) buffer size", pthread_self());
 		buf[0]='\0';
 	}
-		
+
 	return;
+}
+
+
+/*
+Translate inet/inet6 address/port into a string address and integer port
+
+addr2str(addr_str, &port, MAXBUFF - 1, &from_host);
+print ("%s", addr_str);   // 192.168.100.125
+print ("%d", port);   // 80
+
+*/
+
+void
+addr2IpAndPort(char *const res, int *return_port, const int res_len, const struct addrinfo *addr)
+{
+    char    buf[MAXBUF];
+    int     port;
+    void    *src;
+
+    memset(res, 0, res_len);
+#ifdef  HAVE_INET_NTOP
+    switch(addr->ai_family) {
+    case AF_INET:
+        src = (void *)&((struct sockaddr_in *)addr->ai_addr)->sin_addr.s_addr;
+        port = ntohs(((struct sockaddr_in *)addr->ai_addr)->sin_port);
+        if(inet_ntop(AF_INET, src, buf, MAXBUF - 1) == NULL)
+            strncpy(buf, "(UNKNOWN)", MAXBUF - 1);
+        break;
+    case AF_INET6:
+        src = (void *)&((struct sockaddr_in6 *)addr->ai_addr)->sin6_addr.s6_addr;
+        port = ntohs(((struct sockaddr_in6 *)addr->ai_addr)->sin6_port);
+        if( IN6_IS_ADDR_V4MAPPED( &(((struct sockaddr_in6 *)addr->ai_addr)->sin6_addr) )) {
+            src = (void *)&((struct sockaddr_in6 *)addr->ai_addr)->sin6_addr.s6_addr[12];
+            if(inet_ntop(AF_INET, src, buf, MAXBUF - 1) == NULL)
+                strncpy(buf, "(UNKNOWN)", MAXBUF - 1);
+        } else {
+            if(inet_ntop(AF_INET6, src, buf, MAXBUF - 1) == NULL)
+                strncpy(buf, "(UNKNOWN)", MAXBUF - 1);
+        }
+        break;
+    case AF_UNIX:
+        strncpy(buf, (char *)addr->ai_addr, MAXBUF - 1);
+        port = 0;
+        break;
+    default:
+        strncpy(buf, "(UNKNOWN)", MAXBUF - 1);
+        port = 0;
+        break;
+    }
+
+    snprintf(res, res_len, "%s", buf);
+    *return_port = port;
+
+#else
+#error "Pound needs inet_ntop()"
+#endif
+    return;
 }
 
 
 /*
  * Translate inet/inet6 address/port into a string
  */
+
 void
 addr2str(char *const res, const int res_len, const struct addrinfo *addr, const int no_port)
 {
@@ -365,11 +426,13 @@ addr2str(char *const res, const int res_len, const struct addrinfo *addr, const 
         snprintf(res, res_len, "%s", buf);
     else
         snprintf(res, res_len, "%s:%d", buf, port);
+
 #else
 #error "Pound needs inet_ntop()"
 #endif
     return;
 }
+
 
 /*
  * Parse a URL, possibly decoding hexadecimal-encoded characters
@@ -641,7 +704,7 @@ get_backend_by_key(BACKEND *be, const char *bekey) {
 /*
  * return a back-end based on a fixed hash value
  * this is used for session_ttl < 0
- * 
+ *
  * WARNING: the function may return different back-ends
  * if the target back-end is disabled or not alive
  */
@@ -859,7 +922,7 @@ kill_be(SERVICE *const svc, const BACKEND *be, const int disable_mode)
     char    buf[MAXBUF];
     char    buf_log_tag[MAXBUF];
 
-	/* get a tag for logs with backend and service */
+        /* get a tag for logs with backend and service */
     get_bk_and_srv_string( buf_log_tag, svc, be );
 
     if(ret_val = pthread_mutex_lock(&svc->mut))
@@ -1182,7 +1245,7 @@ do_resurect(void)
     for(lstn = listeners; lstn; lstn = lstn->next)
     for(svc = lstn->services; svc; svc = svc->next)
     for(be = svc->backends; be; be = be->next) {
-		
+
         if(be->be_type)
             continue;
         if(!be->alive)
@@ -1208,10 +1271,10 @@ do_resurect(void)
         default:
             continue;
         }
-        
-        /* get a tag for logs with backend and service */
+
+	/* get a tag for logs with backend and service */
 		get_bk_and_srv_string( buf_log_tag, svc, be );
-    
+
         if(connect_nb(sock, &be->ha_addr, be->conn_to, buf_log_tag) != 0) {
             kill_be(svc, be, BE_KILL);
             logmsg(LOG_NOTICE, "%s backend is dead (HA)", buf_log_tag);
@@ -1247,10 +1310,10 @@ do_resurect(void)
         default:
             continue;
         }
-        
-        /* get a tag for logs with backend and service */
+
+	/* get a tag for logs with backend and service */
 		get_bk_and_srv_string( buf_log_tag, svc, be );
-		
+
         if(connect_nb(sock, &be->ha_addr, be->conn_to, buf_log_tag) != 0) {
             kill_be(svc, be, BE_KILL);
             logmsg(LOG_NOTICE, "%s backend is dead (HA)", buf_log_tag);
@@ -1305,10 +1368,10 @@ do_resurect(void)
                 }
                 addr = &be->ha_addr;
             }
-            
-            /* get a tag for logs with backend and service */
+
+	    /* get a tag for logs with backend and service */
 			get_bk_and_srv_string( buf_log_tag, svc, be );
-			
+
             if(connect_nb(sock, addr, be->conn_to, buf_log_tag) == 0) {
                 be->resurrect = 1;
                 modified = 1;
@@ -1326,7 +1389,7 @@ do_resurect(void)
                     /* get a tag for logs with backend and service */
                     get_bk_and_srv_string( buf_log_tag, svc, be );
                     str_be(buf, MAXBUF - 1, be);
-					logmsg(LOG_NOTICE, "BackEnd %s resurrect in farm: '%s', service: '%s'", buf, name, svc->name);
+                                        logmsg(LOG_NOTICE, "BackEnd %s resurrect in farm: '%s', service: '%s'", buf, name, svc->name);
                     logmsg(LOG_NOTICE, "%s backend resurrected", buf_log_tag);
                 }
                 if(be->alive && !be->disabled)
@@ -1381,33 +1444,33 @@ do_resurect(void)
                 }
                 addr = &be->ha_addr;
             }
-            
-            /* get a tag for logs with backend and service */
+
+	    /* get a tag for logs with backend and service */
 			get_bk_and_srv_string( buf_log_tag, svc, be );
-            if(connect_nb(sock, addr, be->conn_to, buf_log_tag) == 0) {
-                be->resurrect = 1;
-                modified = 1;
-            }
-            shutdown(sock, 2);
-            close(sock);
-        }
-        if(modified) {
-            if(ret_val = pthread_mutex_lock(&svc->mut))
-                logmsg(LOG_DEBUG, "do_resurect() lock: %s", strerror(ret_val));
-            svc->tot_pri = 0;
-            for(be = svc->backends; be; be = be->next) {
-                if(be->resurrect) {
-                    be->alive = 1;
-                    logmsg(LOG_NOTICE, "%s backend resurrects", buf_log_tag);
-                }
-                if(be->alive && !be->disabled)
-                    svc->tot_pri += be->priority;
-            }
-            if(ret_val = pthread_mutex_unlock(&svc->mut))
-                logmsg(LOG_DEBUG, "do_resurect() unlock: %s", strerror(ret_val));
-        }
+	    if(connect_nb(sock, addr, be->conn_to, buf_log_tag) == 0) {
+		be->resurrect = 1;
+		modified = 1;
+	    }
+	    shutdown(sock, 2);
+	    close(sock);
+	}
+	if(modified) {
+	    if(ret_val = pthread_mutex_lock(&svc->mut))
+		logmsg(LOG_DEBUG, "do_resurect() lock: %s", strerror(ret_val));
+	    svc->tot_pri = 0;
+	    for(be = svc->backends; be; be = be->next) {
+		if(be->resurrect) {
+		    be->alive = 1;
+		    logmsg(LOG_NOTICE, "%s backend resurrects", buf_log_tag);
+		}
+		if(be->alive && !be->disabled)
+		    svc->tot_pri += be->priority;
+	    }
+	    if(ret_val = pthread_mutex_unlock(&svc->mut))
+		logmsg(LOG_DEBUG, "do_resurect() unlock: %s", strerror(ret_val));
+	}
     }
-    
+
     return;
 }
 
@@ -1977,6 +2040,12 @@ thr_control(void *arg)
             }
             (void)write(ctl, (void *)&dummy_svc, sizeof(SERVICE));
             break;
+#if WAF
+        case REL_WAF:
+            config_parse_waf();
+            waf_reload_rules();
+            break;
+#endif
         case CTRL_EN_LSTN:
             if((lstn = sel_lstn(&cmd)) == NULL)
                 logmsg(LOG_INFO, "thr_control() bad listener %d", cmd.listener);

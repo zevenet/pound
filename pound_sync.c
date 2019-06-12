@@ -107,8 +107,14 @@ POUND_ACTION *deserialize(char *data, const int data_size, int *data_used) {
     }
   POUND_ACTION *action = (POUND_ACTION *)calloc(1, sizeof(POUND_ACTION));
   action->action = (ACTION_TYPE)data[(*data_used)++];
+
+  //  logmsg(LOG_DEBUG, "sync_thread;   header: 0x%02x", header_1);
+  //  logmsg(LOG_DEBUG, "sync_thread;   header: 0x%02x", header_2);
+  //  logmsg(LOG_DEBUG, "sync_thread;   pkt typ: %d", message_type);
+  //  logmsg(LOG_DEBUG, "sync_thread;   len: %d", len);
+  //  logmsg(LOG_DEBUG, "sync_thread;   action: %d", (int)action->action);
   name_size = data[(*data_used)++] & 0xff;
- 
+  // logmsg(LOG_DEBUG, "sync_thread;   key size: %d", size);
   if (name_size > 0) {
       char farm_name[256] ="";
       for (i = 0; i < name_size; i++)
@@ -118,18 +124,25 @@ POUND_ACTION *deserialize(char *data, const int data_size, int *data_used) {
   if (action->action != SYNC_REQUEST) {
       for (i = 0; i < 4; i++) {
           action->listener |= (((unsigned int)data[(*data_used)++]) & 0xff)
-              << (8 * i);         
+              << (8 * i);
+          // logmsg(LOG_DEBUG, "sync_thread;   buffer[%d] = 0x%02x , listener[%i]=
+          // %u",(*data_used)-1,data[(*data_used)-1],i, action->listener);
         }
       for (i = 0; i < 4; i++) {
           action->service |= (((unsigned int)data[(*data_used)++]) & 0xff)
-              << (8 * i);          
+              << (8 * i);
+          // logmsg(LOG_DEBUG, "sync_thread;   buffer[%d] = 0x%02x , service[%i]=
+          // %u",(*data_used)-1,data[(*data_used)-1],i, action->service);
         }
       for (i = 0; i < 4; i++) {
           action->backend |= (((unsigned int)data[(*data_used)++]) & 0xff)
-              << (8 * i);          
+              << (8 * i);
+          // logmsg(LOG_DEBUG, "sync_thread;   buffer[%d] = 0x%02x , backend[%i]=
+          // %u",(*data_used)-1,data[(*data_used)-1],i, action->backend);
         }
 
-      size = data[(*data_used)++] & 0xff;     
+      size = data[(*data_used)++] & 0xff;
+      // logmsg(LOG_DEBUG, "sync_thread;   key size: %d", size);
       if (size > 0) {
           action->session_key = (char *)calloc(size, sizeof(char));
           for (i = 0; i < size; i++)
@@ -139,7 +152,8 @@ POUND_ACTION *deserialize(char *data, const int data_size, int *data_used) {
 
       if (action->action == SESS_ADD || action->action == SESS_UPDATE ||
           action->action == SESS_WRITE) {
-          size = data[(*data_used)++] & 0xff;         
+          size = data[(*data_used)++] & 0xff;
+          // logmsg(LOG_DEBUG, "sync_thread;   content size: %d", size);
           if (size > 0) {
               action->session_content = (char *)calloc(size, sizeof(char));
               for (i = 0; i < size; i++)
@@ -148,7 +162,9 @@ POUND_ACTION *deserialize(char *data, const int data_size, int *data_used) {
 
           for (j = 0; j < 8; j++) {
               action->session_last_acc |=
-                  (((unsigned long)data[(*data_used)++]) & 0xff) << (8 * j);             
+                  (((unsigned long)data[(*data_used)++]) & 0xff) << (8 * j);
+              // logmsg(LOG_DEBUG, "sync_thread;   buffer[%d] = 0x%02x , last_Acc[%d]=
+              // %u",(*data_used)-1,data[(*data_used)-1],j, action->session_last_acc);
             }
         }
     }
@@ -174,6 +190,9 @@ int send_action(POUND_ACTION *action) {
            }else if (count == (size - sent))
                 break;
            else if (count < 0) {
+//              if(count == EPIPE){
+//                sync_is_running = 0;
+//              }
               logmsg(LOG_ERR, "sync_thread; send() failed: %s", strerror(errno));
               res = -1;
               break;
@@ -257,7 +276,8 @@ void receive_task() {
               continue;
             } else if (events[i].events & EPOLLIN) {
               memset(buffer + buffer_size, 0,
-                     sizeof (buffer) - buffer_size);             
+                     sizeof (buffer) - buffer_size);
+              // Incoming data, read and parse
               if ((count = recv(fd, buffer + buffer_size,
                                 sizeof(buffer) - buffer_size, MSG_NOSIGNAL)) > 0) {
 
@@ -316,10 +336,12 @@ void start_sync_thr(void) {
 }
 
 void free_action(POUND_ACTION *action) {
-  if (action - action != SYNC_REQUEST) {       
+  if (action - action != SYNC_REQUEST) {
+       //logmsg(LOG_NOTICE, "thread_sync: Freeing session key");
       free(action->session_key);
       if (action->action == SESS_ADD || action->action == SESS_UPDATE ||
-          action->action == SESS_WRITE) {        
+          action->action == SESS_WRITE) {
+          // logmsg(LOG_NOTICE, "thread_sync: Freeing session content");
           free(action->session_content);
         }
     }
@@ -491,13 +513,18 @@ void set_objects_key_id() {
   n_bck = 0;
   for (lstn = listeners; lstn; lstn = lstn->next) {
       lstn->key_id = n_listn++;
-      n_svc = 0;  
+      n_svc = 0;
+      //logmsg(LOG_DEBUG, "sync_thread; Set id listener: %d", lstn->key_id);
       for (svc = lstn->services; svc; svc = svc->next) {
           svc->key_id = n_svc++;
           svc->listener_key_id = lstn->key_id;
-          n_bck = 0;          
+          n_bck = 0;
+          //logmsg(LOG_DEBUG, "sync_thread:   Set id Service: %d", svc->key_id);
+          //logmsg(LOG_DEBUG, "sync_thread:   Set id Service_lis: %d",
+          //       svc->listener_key_id);
           for (be = svc->backends; be; be = be->next) {
-              be->key_id = n_bck++;      
+              be->key_id = n_bck++;
+              //logmsg(LOG_DEBUG, "sync_thread;        Set id backend: %d", be->key_id);
             }
         }
     }

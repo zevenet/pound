@@ -13,7 +13,7 @@ typedef struct _pound_action {
   char *session_content;
   unsigned long session_last_acc;
 } POUND_ACTION;
-
+// extern int sync_is_enabled;
 static int num_connections;
 static int conn_sock;
 static int sync_listen_fd;

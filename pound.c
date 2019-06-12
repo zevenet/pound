@@ -8,12 +8,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Pound is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -25,15 +25,22 @@
  * EMail: roseg@apsis.ch
  */
 
-#include    "pound.h"
-#include    "pound_sync.h"
-#include    <execinfo.h>
-
+#include "pound.h"
+#include "pound_sync.h"
+#include <execinfo.h>
 
 /* common variables */
+char    *conf_name;
+int     body_max_size;
+#if WAF
+Rules   *waf_rules;
+ModSecurity   *waf_api;
+FILE_LIST *waf_rules_file;
+#endif
+
 char        *user,              /* user to run as */
             *group,             /* group to run as */
-            *name,          /* farm name to run as */            
+            *name,          /* farm name to run as */
             *root_jail,         /* directory to chroot to */
             *pid_name,          /* file to record pid in */
             *ctrl_name,         /* control socket name */
@@ -350,7 +357,7 @@ main(const int argc, char **argv)
 
     /* read config */
     config_parse(argc, argv);
-    set_objects_key_id();
+    set_objects_key_id();//TODO::ABDESS
 
     if(log_facility != -1)
         openlog("pound", LOG_CONS | LOG_NDELAY, LOG_DAEMON);
@@ -454,7 +461,8 @@ main(const int argc, char **argv)
     /* Turn off verbose messages (if necessary) */
     print_log = 0;
 
-    if(daemonize) {
+    //daemonize=0;    // Debug
+    if ( daemonize ){
         /* daemonize - make ourselves a subprocess. */
         switch (fork()) {
             case 0:
@@ -505,12 +513,20 @@ main(const int argc, char **argv)
             exit(1);
         }
 
+#if WAF
+    // WAF initializate waf API
+    waf_api = msc_init();
+    config_parse_waf();
+    // load rules
+    if (waf_reload_rules())
+        exit(1);
+#endif
+
     /* split off into monitor and working process if necessary */
     for(;;) {
 #ifdef  UPER
         if((son = fork()) > 0) {
             int status;
-
             (void)wait(&status);
             if(WIFEXITED(status))
                 logmsg(LOG_ERR, "MONITOR: worker exited normally %d, restarting...", WEXITSTATUS(status));
@@ -579,6 +595,7 @@ main(const int argc, char **argv)
                     if(sync_is_enabled)
                       {
                         logmsg(LOG_NOTICE, "closing sync thread");
+
                         sleep(grace);
                         stop_session_sync();
 
@@ -589,6 +606,7 @@ main(const int argc, char **argv)
                     polls[i].events = POLLIN | POLLPRI;
                     polls[i].revents = 0;
                 }
+
                 if(poll(polls, n_listeners, -1) < 0) {
                     logmsg(LOG_WARNING, "poll: %s", strerror(errno));
                 } else {
