@@ -8,15 +8,15 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Pound is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  * Contact information:
  * Apsis GmbH
  * P.O.Box
@@ -100,7 +100,7 @@ static char *xhttp[] = {
     "^(GET|POST|HEAD|PUT|PATCH|DELETE) ([^ ]+) HTTP/1.[01]$",
     "^(GET|POST|HEAD|PUT|PATCH|DELETE|LOCK|UNLOCK|PROPFIND|PROPPATCH|SEARCH|MKCOL|MKCALENDAR|MOVE|COPY|OPTIONS|TRACE|MKACTIVITY|CHECKOUT|MERGE|REPORT) ([^ ]+) HTTP/1.[01]$",
     "^(GET|POST|HEAD|PUT|PATCH|DELETE|LOCK|UNLOCK|PROPFIND|PROPPATCH|SEARCH|MKCOL|MKCALENDAR|MOVE|COPY|OPTIONS|TRACE|MKACTIVITY|CHECKOUT|MERGE|REPORT|SUBSCRIBE|UNSUBSCRIBE|BPROPPATCH|POLL|BMOVE|BCOPY|BDELETE|BPROPFIND|NOTIFY|CONNECT) ([^ ]+) HTTP/1.[01]$",
-    "^(GET|POST|HEAD|PUT|PATCH|DELETE|LOCK|UNLOCK|PROPFIND|PROPPATCH|SEARCH|MKCOL|MKCALENDAR|MOVE|COPY|OPTIONS|TRACE|MKACTIVITY|CHECKOUT|MERGE|REPORT|SUBSCRIBE|UNSUBSCRIBE|BPROPPATCH|POLL|BMOVE|BCOPY|BDELETE|BPROPFIND|NOTIFY|CONNECT|RPC_IN_DATA|RPC_OUT_DATA) ([^ ]+) HTTP/1.[01]$",
+    "^(GET|POST|HEAD|PUT|PATCH|DELETE|LOCK|UNLOCK|PROPFIND|PROPPATCH|SEARCH|MKCOL|MKCALENDAR|MOVE|COPY|OPTIONS|TRACE|MKACTIVITY|CHECKOUT|MERGE|REPORT|SUBSCRIBE|UNSUBSCRIBE|BPROPPATCH|POLL|BMOVE|BCOPY|BDELETE|BPROPFIND|NOTIFY|CONNECT|RPC_IN_DATA|RPC_OUT_DATA|VERSION-CONTROL) ([^ ]+) HTTP/1.[01]$",
 };
 
 static int  log_level = 1;
@@ -256,7 +256,7 @@ get_subjectaltnames(X509 *x509, unsigned int *count)
 {
     unsigned int            local_count;
     unsigned char           **result;
-    STACK_OF(GENERAL_NAME)  *san_stack = (STACK_OF(GENERAL_NAME)*)X509_get_ext_d2i(x509, NID_subject_alt_name, NULL, NULL);     
+    STACK_OF(GENERAL_NAME)  *san_stack = (STACK_OF(GENERAL_NAME)*)X509_get_ext_d2i(x509, NID_subject_alt_name, NULL, NULL);
     unsigned char           *temp[sk_GENERAL_NAME_num(san_stack)];
     GENERAL_NAME            *name;
     int                     i;
@@ -632,7 +632,7 @@ static IMPLEMENT_LHASH_HASH_FN(t, TABNODE)
 #else
 static IMPLEMENT_LHASH_HASH_FN(t_hash, const TABNODE *)
 #endif
- 
+
 static int
 t_cmp(const TABNODE *d1, const TABNODE *d2)
 {
@@ -1112,7 +1112,7 @@ SNI_server_name(SSL *ssl, int *dummy, POUND_CTX *ctx)
             }
         }
     }
-    
+
     /* logmsg(LOG_DEBUG, "No match for %s, default used", server_name); */
     SSL_set_SSL_CTX(ssl, ctx->ctx);
     return SSL_TLSEXT_ERR_OK;
@@ -1617,7 +1617,7 @@ parse_file(void)
         } else if(!regexec(&Name, lin, 4, matches, 0)) {
             lin[matches[1].rm_eo] = '\0';
             if((name = strdup(lin + matches[1].rm_so)) == NULL)
-                conf_err("Farm name config: out of memory - aborted");                
+                conf_err("Farm name config: out of memory - aborted");
         } else if(!regexec(&RootJail, lin, 4, matches, 0)) {
             lin[matches[1].rm_eo] = '\0';
             if((root_jail = strdup(lin + matches[1].rm_so)) == NULL)
