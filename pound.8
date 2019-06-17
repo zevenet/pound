@@ -6,6 +6,7 @@ pound \- HTTP/HTTPS reverse-proxy and load-balancer
 .B pound
 [\fI-v\fR]
 [\fI-c\fR]
+[\fI-W\fR]
 [\fI-V\fR]
 [\fI-f config_file\fR]
 [\fI-p pid_file\fR]
@@ -152,6 +153,13 @@ Check only:
 will exit immediately after parsing the configuration file. This may be used for
 running a quick syntax check before actually activating a server.
 .TP
+\fB\-W\fR
+Check WAF configuration:
+.B Pound
+will exit immediately after parsing the WAF configuration rules 'WafRules'. This
+is used to check if the WAF rules are well built and if a conflict exists among
+the imported rulesets.
+.TP
 \fB\-f\fR config_file
 Location of the configuration file (see below for a full description of the format).
 Default:
@@ -226,9 +234,9 @@ to work like a regular process. Useful for debugging or if you want to
 use something like \fIdaemontools\fR.
 .TP
 \fBThreadModel\fR [pool|dynamic]
-If set to pool, 
+If set to pool,
 .B Pound
-will spawn 
+will spawn
 \fBThreads\fR
 number of threads when it starts and reuse those threads throughout its
 lifetime.  This sets a hard limit on the number of concurrent requests
@@ -279,7 +287,7 @@ Ignore case when matching URLs (default: 0). This value can be
 overridden for specific services.
 .TP
 \fBIgnore100continue\fR 0|1
-Ignore Header Expect: 100-continue (default: 1, Ignored). 
+Ignore Header Expect: 100-continue (default: 1, Ignored).
 If 0 pound manages Expect: 100-continue headers.
 .TP
 \fBDynScale\fR 0|1
@@ -462,6 +470,17 @@ Default: "The service is not available. Please try again later.".
 \fBErrNoSsl\fR "filename"
 A file with the text to be displayed if a user connects to a HTTPS listener with HTTP.
 Default: "Please use HTTPS.".
+.TP
+\fBWafRule\fR "filename"
+A file with SecLang directives to dectect and protect against HTTP malicious requests.
+Several WafRule directives can be set, they will be analyzed in the same order than appears in
+the pound configuration file.
+\BWafBodySize\fR "bytes"
+It is the buffer size, in bytes, for saving the request and response bodies. If the body is bigger than
+this buffer, the body will be forwarded without being analyzed. If it has the value 0, the bodies will be
+skipped. If it has the value -1 no limit is set for the buffer, the buffer will have the same size that
+is set in the Content-Length HTTP header.
+Default: "-1".
 
 Only valid for HTTPS listeners.
 .TP
@@ -577,7 +596,7 @@ precede all other SSL-specific directives.
 Specify the server certificate or certificates. The
 .I certificate directory
 is a directory path containing one or more certificates, possibly a certificate chain and the signature
-for this server. This directive or 
+for this server. This directive or
 .I Cert
 is
 .B mandatory
@@ -708,17 +727,17 @@ was defined then all requests match. The matching is by default case-sensitive,
 but this can be overridden by specifying
 .B IgnoreCase 1
 .TP
-\fBOrURLs\fR 
+\fBOrURLs\fR
 Defines a block of
 .I URL
 directives that should be merged into a single pattern, all OR'd together.
-This creates a pattern like 
+This creates a pattern like
 .B ((url1)|(url2)|(url3))
- for as many 
+ for as many
 .I URL
 directives as are specified within the block.  End the block with an
 .I End
-directive. 
+directive.
 .TP
 \fBBackendCookie\fR "cookiename" "domain" "path" age|Session
 If defined, Pound will inject a cookie in each response with the appropriate backend's key, so that
@@ -789,7 +808,7 @@ to redirect to.  If you use \fBRedirectAppend\fR, the original request path
 will be appended to the host and path you specified.  If you use \fBRedirectDynamic\fR,
 then
 .I url
-can contain RegEx replacements in the form 
+can contain RegEx replacements in the form
 .I $1
 through
 .I $9

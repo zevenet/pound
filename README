@@ -1,20 +1,26 @@
-POUND - Zevenet Dev team has added some new properties to 
-	Pound Reverse-Proxy in order to offer some new 
-	functionalities required for critical environments. 
-	They can be checked in the git commits but the 
+POUND - Zevenet Dev team has added some new properties to
+	Pound Reverse-Proxy in order to offer some new
+	functionalities required for critical environments.
+	They can be checked in the git commits but the
 	following lines describe the most important changes:
-	
+
 	1. Added support for HSTS headers
 	commit: 802f41a26c29176bf371be1b5f379a435b044648
 	2. Supported 100Continue headers
 	commit: dcbbff5b7514c267b8a9caa5c336479a99cce8d4
-	3. Added new Directive Name in order to log with 
+	3. Added new Directive Name in order to log with
 	a higher level of detail
 	commit: ca007c53944377618f1d07eb93d1cb90f3eafd05
 	4. Poundctl counts backend established conns.
 	commit: 8044ed9daa966b89e031a8da05bbdf3041b33a93
 	5. Supported Openssl 1.0.2 Compilation
 	commit: 8044ed9daa966b89e031a8da05bbdf3041b33a93
+	6. Supported Openssl 1.1 Compilation
+	commit: 68b2a5a958536d04be4560806ec19f80c6e292f1
+	7. Supported loadbalancing with websockets
+	commit: 9d608feb9bca29d9d9b319a7ec35fe9eda1f15ed
+	8. Compatibility with Web Application Firewall (WAF) using Libmodsecurity
+	commit: 42600bbdaf088fddc0adf604f456c4857ea68a4a
 
 
 POUND - REVERSE-PROXY AND LOAD-BALANCER
@@ -432,12 +438,12 @@ SESSIONS
     - by client address: in this scheme Pound directs all requests from
       the same client IP address to the same back-end server. Put the
       lines
-      
+
       Session
         Type    IP
         TTL     300
       End
-      
+
       in the configuration file to achieve this effect. The value indicates
       what period of inactivity is allowed before the session is discarded.
 
@@ -449,7 +455,7 @@ SESSIONS
         Type    Basic
         TTL     300
       End
-      
+
       in configuration file to achieve this effect. The value indicates what
       period of inactivity is allowed before the session is discarded.
 
@@ -473,7 +479,7 @@ SESSIONS
 
     - by cookie value: applications that use this method pass a certain cookie
       back and forth. Add the lines
-      
+
       Session
         Type    Cookie
         ID      "sess"
@@ -485,7 +491,7 @@ SESSIONS
 
     - by HTTP parameter value: applications that use this method pass an HTTP
       parameter (http://x.y/z;parameter) back and forth. Add the lines
-      
+
       Session
         Type    PARM
         TTL     300
@@ -496,7 +502,7 @@ SESSIONS
 
     - by header value: applications that use this method pass a certain header
       back and forth. Add the lines
-      
+
       Session
         Type    Header
         ID      "X-sess"
@@ -862,7 +868,7 @@ OTHER ISSUES
       same address. The default configuration of Linux does not allow a
       program to bind() to non-local addresses, which may cause a problem.
       Solution: add
-      
+
         echo 1 > /proc/sys/net/ipv4/ip_nonlocal_bind
 
       in your start-up script, or just set
