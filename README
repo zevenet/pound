@@ -792,6 +792,38 @@ WebDAV
     Pound.
 
 
+
+WEB APPLICATION FIREWALL, WAF
+
+Libmodsecurity has been integrated with Pound, in order to analyze the 
+incoming traffic and defending the servers of possible HTTP attacks. 
+This feature allows configuring security policies and denying the service 
+for the non-desire requests.
+
+Some protections rules are available in the [owasp-modsecurity-crs] (https://github.com/SpiderLabs/owasp-modsecurity-crs)
+project
+
+A benchmark analyze and comparison with Nginx  has been done with the following results:
+
+Pound has been configured for inspecting the incoming traffic with Libmodsecurity
+and forwarding it to the backend. The test was repeated for Nginx using Libmodsecurity,
+the results are exposed here.
+
+Host machine, load balancer:
+CPU: Intel Xeon E3-1245 v5, 3.5GHz with 8 cores
+
+The stress tool command: wrk -c 20 -d 20 -t 10 http://127.0.0.1/index.html
+
+The red cells are showing the CPU is over the 90%
+![Benchmark](benchmark_waf.png)
+
+![Graph](graph_waf.png)
+
+Pound and Nginx converge at the same point, they have the same bottleneck. Pound, being 
+more light, has a better performance when it is not overloaded.
+
+
+
 OTHER ISSUES
 
     The following problems were reported by various people who use pound:
