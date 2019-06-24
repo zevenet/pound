@@ -768,6 +768,8 @@ A benchmark analyze and comparison with Nginx  has been done with the following 
 Pound has been configured for inspecting the incoming traffic with Libmodsecurity
 and forwarding it to the backend. The test was repeated for Nginx using Libmodsecurity,
 the results are exposed here.
+Note: The Nginx configuration is the default Nginx configuration of the Debian repository. Only *proxy_pass* directive 
+was added.
 
 Host machine, load balancer:
 CPU: Intel Xeon E3-1245 v5, 3.5GHz with 8 cores
@@ -779,8 +781,7 @@ The red cells are showing the CPU is over the 90%
 
 ![Graph](graph_waf.png)
 
-Pound and Nginx converge at the same point, they have the same bottleneck. Pound, being
-more light, has a better performance when it is not overloaded.
+Pound and Nginx converge at the same point, they have the same bottleneck.
 
 
 
