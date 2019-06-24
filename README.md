@@ -1,4 +1,17 @@
-POUND - Zevenet Dev team has added some new properties to
+# POUND - REVERSE-PROXY AND LOAD-BALANCER
+
+    The Pound program is a reverse proxy, load balancer and
+    HTTPS front-end for Web server(s). Pound was developed
+    to enable distributing the load among several Web-servers
+    and to allow for a convenient SSL wrapper for those Web
+    servers that do not offer it natively. Pound is distributed
+    under the GPL - no warranty, it's free to use, copy and
+    give away.
+
+
+## IMPROVEMENTS
+
+	Zevenet Dev team has added and imported some properties to
 	Pound Reverse-Proxy in order to offer some new
 	functionalities required for critical environments.
 	They can be checked in the git commits but the
@@ -23,18 +36,7 @@ POUND - Zevenet Dev team has added some new properties to
 	commit: 42600bbdaf088fddc0adf604f456c4857ea68a4a
 
 
-POUND - REVERSE-PROXY AND LOAD-BALANCER
-
-    The Pound program is a reverse proxy, load balancer and
-    HTTPS front-end for Web server(s). Pound was developed
-    to enable distributing the load among several Web-servers
-    and to allow for a convenient SSL wrapper for those Web
-    servers that do not offer it natively. Pound is distributed
-    under the GPL - no warranty, it's free to use, copy and
-    give away.
-
-
-WHAT POUND IS:
+## WHAT POUND IS:
 
     1.  a reverse-proxy: it passes requests from client
         browsers to one or more back-end servers.
@@ -64,7 +66,7 @@ WHAT POUND IS:
     and should thus pose no security threat to any machine.
 
 
-WHAT POUND IS NOT:
+## WHAT POUND IS NOT:
 
     1.  Pound is not a Web server: by itself, Pound serves no
         content - it contacts the back-end server(s) for that
@@ -74,7 +76,7 @@ WHAT POUND IS NOT:
         every request is passed "as is" to a back-end server.
 
 
-STATUS
+## STATUS
 
     As of release 1.0 Pound is declared to be production-quality code.
 
@@ -109,7 +111,7 @@ STATUS
     with Opera 6, but these should be OK in the present version.
 
 
-INSTALLATION
+# INSTALLATION
 
     Probably the easiest way to install Pound is to use a pre-compiled package
     if you can find one. While Apsis offers no such packages, they are available
@@ -177,52 +179,10 @@ INSTALLATION
         page for available options and examples.
 
 
-COPYRIGHT
 
-    Pound is copyrighted by Apsis GmbH and is distributed under
-    the terms of the GNU Public License with the additional
-    exemption that compiling, linking, and/or using OpenSSL is
-    allowed. Basically, this means that you can use it free of
-    charge, copy it, distribute it (provided the copyright is
-    maintained and the full package is distributed), modify it,
-    or line a bird-cage with it.
+# CONFIGURATION
 
-    We would be happy to hear from you if you use it and
-    suggestions and improvements are gladly accepted.
-
-
-CONTACT
-
-    Robert Segall, roseg@apsis.ch
-
-    Apsis GmbH, http://www.apsis.ch
-
-    P O Box
-
-    CH-8707 Uetikon am See
-
-    Switzerland
-
-    +41-44-920 4904
-
-
-MAILING LIST
-
-    Pound has its own mailing list now: please send a message with
-    the subject "subscribe" to pound@apsis.ch in order to
-    subscribe. You will receive confirmation and instructions in
-    the reply.
-
-    All messages are available and indexed (searcheable) in the
-    archive http://www.apsis.ch/pound/pound_list.
-
-    The mailing list is the primary support forum for Pound - please
-    post there any questions you may have. The developpers' address is
-    given here for information purposes only.
-
-
-
-ZOPE
+## ZOPE
 
     A special note for Zope users: the original intent on
     developing Pound was to allow distributing the load
@@ -252,7 +212,7 @@ ZOPE
 
 
 
-VIRTUAL HOSTS (IN GENERAL)
+## VIRTUAL HOSTS (IN GENERAL)
 
     Some people asked about the possibility of redirecting requests to back-ends
     as per some virtual hosts definition. While I believe this is not Pound's
@@ -321,7 +281,7 @@ VIRTUAL HOSTS (IN GENERAL)
 
 
 
-VIRTUAL HOSTS AND HTTPS
+## VIRTUAL HOSTS AND HTTPS
 
     Quite often we get inquiries about Pound's ability to do virtual hosting
     with HTTPS. In order to lay this matter to rest, let me say:
@@ -387,7 +347,7 @@ VIRTUAL HOSTS AND HTTPS
 
 
 
-VIRTUAL HOSTS IN ZOPE
+## VIRTUAL HOSTS IN ZOPE
 
     For reasons I can't quite grasp, it seems that a lot of Zope
     users are convinced that virtual hosts are only possible through
@@ -419,7 +379,7 @@ VIRTUAL HOSTS IN ZOPE
     as base or absoluteURL) are translated correctly in the response.
 
 
-SESSIONS
+## SESSIONS
 
     Pound has the ability to keep track of sessions between a client
     browser and a back-end server. Unfortunately, HTTP is defined as
@@ -536,7 +496,7 @@ SESSIONS
     changing the contents in any way.
 
 
-REQUEST LOGGING
+## REQUEST LOGGING
 
     As a general rule, Pound passes all headers as they arrive from the client
     browser to the back-end server(s). There are two exceptions to this rule:
@@ -562,7 +522,7 @@ REQUEST LOGGING
     to get all the messages generated by Pound.
 
 
-HTTPS CERTIFICATES
+## HTTPS CERTIFICATES
 
     If a client browser connects via HTTPS and if it presents a
     certificate and if HTTPSHeaders is set, Pound will obtain the
@@ -602,7 +562,7 @@ HTTPS CERTIFICATES
     within the Service(s).
 
 
-THREADS AND LIMITS
+## THREADS AND LIMITS
 
     A few people ran into problems when installing Pound because of the
     various threading models and how they interact with system-imposed
@@ -632,7 +592,7 @@ THREADS AND LIMITS
     Please note that your kernel needs to be configured to support the
     required resources - the above are just the shell commands.
 
-SIMILAR SYSTEMS
+## SIMILAR SYSTEMS
 
     Quite a few people asked "What is wrong with Apache/Squid/
     stunnel/your_favorite? Do we really need another proxy
@@ -689,7 +649,7 @@ SIMILAR SYSTEMS
       above criteria - I am always interested in new ideas.
 
 
-DEDICATED SERVERS
+## DEDICATED SERVERS
 
     Some people asked about the possibility of dedicating specific
     back-end servers to some clients - in other words, if a request
@@ -769,7 +729,7 @@ DEDICATED SERVERS
     performance improvement is debatable, at least on Linux).
 
 
-WebDAV
+## WebDAV
 
     As of version 1.0 Pound supports the full WebDAV command-set. In
     fact, it has been tested and is known to (almost) work with the
@@ -793,11 +753,11 @@ WebDAV
 
 
 
-WEB APPLICATION FIREWALL, WAF
+## WEB APPLICATION FIREWALL, WAF
 
-Libmodsecurity has been integrated with Pound, in order to analyze the 
-incoming traffic and defending the servers of possible HTTP attacks. 
-This feature allows configuring security policies and denying the service 
+Libmodsecurity has been integrated with Pound, in order to analyze the
+incoming traffic and defending the servers of possible HTTP attacks.
+This feature allows configuring security policies and denying the service
 for the non-desire requests.
 
 Some protections rules are available in the [owasp-modsecurity-crs] (https://github.com/SpiderLabs/owasp-modsecurity-crs)
@@ -819,12 +779,12 @@ The red cells are showing the CPU is over the 90%
 
 ![Graph](graph_waf.png)
 
-Pound and Nginx converge at the same point, they have the same bottleneck. Pound, being 
+Pound and Nginx converge at the same point, they have the same bottleneck. Pound, being
 more light, has a better performance when it is not overloaded.
 
 
 
-OTHER ISSUES
+## OTHER ISSUES
 
     The following problems were reported by various people who use pound:
 
@@ -912,7 +872,40 @@ OTHER ISSUES
       (Thanks to RUne Saetre for the suggestion).
 
 
-ACKNOWLEDGMENTS
+# PROJECT INFO
+
+## COPYRIGHT
+
+    Pound is copyrighted by Apsis GmbH and is distributed under
+    the terms of the GNU Public License with the additional
+    exemption that compiling, linking, and/or using OpenSSL is
+    allowed. Basically, this means that you can use it free of
+    charge, copy it, distribute it (provided the copyright is
+    maintained and the full package is distributed), modify it,
+    or line a bird-cage with it.
+
+    We would be happy to hear from you if you use it and
+    suggestions and improvements are gladly accepted.
+
+
+
+## MAILING LIST
+
+    Pound has its own mailing list now: please send a message with
+    the subject "subscribe" to pound@apsis.ch in order to
+    subscribe. You will receive confirmation and instructions in
+    the reply.
+
+    All messages are available and indexed (searcheable) in the
+    archive http://www.apsis.ch/pound/pound_list.
+
+    The mailing list is the primary support forum for Pound - please
+    post there any questions you may have. The developpers' address is
+    given here for information purposes only.
+
+
+
+## ACKNOWLEDGMENTS
 
     Albert (of Alacra) for investigating and writing the TCP_NODELAY code.
 
@@ -963,3 +956,6 @@ ACKNOWLEDGMENTS
     contributed the patch to fix it.
 
     All the others who tested Pound and told me about their results.
+
+
+## [www.zevenet.com](https://www.zevenet.com)
