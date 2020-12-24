@@ -510,8 +510,20 @@ directives may be specified in order to remove more than one header, and
 the header itself may be a regular pattern (though this should be used with
 caution).
 .TP
+\RemoveResponseHead\fR "header pattern"
+Remove certain headers from the outcomming response, the header sent by the
+backend is not sent to the client. All occurences of the
+matching specified header will be removed. Multiple directives may be specified
+in order to remove more than one header, and the header itself may be a regular
+pattern (though this should be used with caution).
+.TP
 \fBAddHeader\fR "header: to add"
 Add the defined header to the request passed to the back-end server. The header
+is added verbatim. Use multiple \fIAddHeader\fR directives if you need to add more
+than one header.
+.TP
+\fBAddResponseHeader\fR "header: to add"
+Add the defined header to the response passed to the client. The header
 is added verbatim. Use multiple \fIAddHeader\fR directives if you need to add more
 than one header.
 .TP
@@ -697,6 +709,10 @@ never specified.  If this directive is specified, one or many times, any
 matching useragent pattern will cause the ssl unclean shutdown behavior.
 Other user agents will follow the mod_ssl compliant and safe code.
 You likely want to set this for all MSIE browsers.
+.TP
+\fBForwardSNI\fR "0|1 default=1"
+Enable SNI server host name forwarding to https backends if it presented by client.
+.SH "Service"
 .SH "Service"
 A service is a definition of which back-end servers
 .B Pound

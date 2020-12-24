@@ -31,6 +31,8 @@
 #include <math.h>
 #include <stdio.h>
 
+#include <limits.h>
+
 #include <dirent.h>
 #if HAVE_STDLIB_H
 #include <stdlib.h>
@@ -277,9 +279,36 @@ typedef struct _file_list{
       char *file; /* file with waf rules */
       struct _file_list *next;
 } FILE_LIST;
-extern Rules   *waf_rules;
+
+typedef struct _waf_ruleset_memo{
+      int counter; /* counter to delete struct after reload */
+      Rules *rules;
+      pthread_mutex_t mut;
+} WAF_RULESET_MEMO;
+
+typedef enum {
+  ALLOW,
+  REDIRECTION,
+  BLOCK
+} WAF_ACTION;
+
+extern pthread_mutex_t waf_rules_memo_mtx; // last waf ruleset loaded
+extern WAF_RULESET_MEMO   *waf_rules_memo; // lock the waf resource
 extern ModSecurity   *waf_api;  /* control socket to connect with waf process */
 extern FILE_LIST *waf_rules_file;
+
+int waf_memo_increase(WAF_RULESET_MEMO * waf_rules);
+int waf_memo_decrease(WAF_RULESET_MEMO * waf_rules);
+void waf_memo_clean(WAF_RULESET_MEMO * waf_rules);
+void waf_del_transaction(Transaction **transac);
+void waf_create_transaction(Transaction **t, ModSecurity *ms, Rules *rules);
+int waf_reload_rules(void);
+int waf_body_enabled(int bodybuf, const char *logtag, LONG body_size, int chunked, int rpc, int no_cont);
+int waf_add_http_info(Transaction *t, const char *header);
+int waf_add_req_head(Transaction *t, char const **headers, int num_headers);
+int waf_add_resp_head(Transaction * t, char const **headers, int num_headers);
+int read_body(BIO *sock, char **buff, int size);
+int waf_resolution(Transaction *t,int *int_code, char **url, char *);
 #endif
 
 extern char *user, /* user to run as */
@@ -384,6 +413,7 @@ typedef struct _backend {
   int resurrect;       /* this back-end is to be resurrected */
   int disabled;        /* true if the back-end is disabled */
   int connections;
+  int ecdhcurve_EC_nid; /*Control ECDH curve, if 0 it enable automatic selection*/
   struct _backend *next;
   int key_id;
 } BACKEND;
@@ -464,6 +494,7 @@ typedef struct _listener {
   MATCHER *
       ssl_uncln_shutdn; /* User Agent Patterns to enable ssl unclean shutdown */
   char *add_head;       /* extra SSL header */
+  char *add_head_resp;       /* extra SSL header */
   regex_t verb;         /* pattern to match the request verb against */
   int to;               /* client time-out */
   int has_pat;          /* was a URL pattern defined? */
@@ -475,12 +506,14 @@ typedef struct _listener {
   int nossl_redir; /* Code to use for redirect (301 302 307)*/
   LONG max_req;    /* max. request size */
   MATCHER *head_off;      /* headers to remove */
+  MATCHER *head_off_resp;      /* headers to remove */
   int rewr_loc;           /* rewrite location response */
   int rewr_dest;          /* rewrite destination header */
   int disabled;           /* true if the listener is disabled */
   int log_level;          /* log level for this listener */
   int allow_client_reneg; /* Allow Client SSL Renegotiation */
   int disable_ssl_v2;     /* Disable SSL version 2 */
+  int ssl_forward_sni_server_name; /* enable SNI hostname forwarding to https backends, param ForwardSNI*/
   SERVICE *services;
   struct _listener *next;
 } LISTENER;
@@ -743,22 +776,6 @@ extern void *thr_timer(void *);
  */
 extern void *thr_control(void *);
 
-
-#if WAF
-typedef enum {
-  ALLOW,
-  REDIRECTION,
-  BLOCK
-} WAF_ACTION;
-
-void waf_del_transaction(Transaction **transac);
-void waf_create_transaction(Transaction **t, ModSecurity *ms, Rules *rules);
-int waf_reload_rules(void);
-int waf_body_enabled(int bodybuf, const char *logtag, int body_size, int chunked, int rpc);
-int waf_add_http_info(Transaction *t, const char *header);
-int waf_add_req_head(Transaction *t, char const **headers, int num_headers);
-int read_body(BIO *sock, char **buff, int size);
-int waf_resolution(Transaction *t,int *int_code, char **url, char *);
-#endif
+void get_bk_and_srv_string(char *buf, SERVICE * srv, BACKEND * backend);
 
 #endif
