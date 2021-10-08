@@ -201,7 +201,7 @@ waf_body_enabled(int bodybuf, const char *logtag, LONG body_size, int chunked,
                  int rpc, int no_cont)
 {
   int ret = 0;
-  if (no_cont) {
+  if ( no_cont ) {
     // no body is expected (i.e. HEAD verb)
   } else if (!bodybuf) {
     //~ logmsg(LOG_DEBUG, "%s (%lx) WAF skip body, the body is disabled",
@@ -401,14 +401,15 @@ int waf_add_resp_head(Transaction * t, char const **headers, int num_headers)
 /* it returns -1 on error or another value on success*/
 int read_body(BIO * sock, char **buff, int size)
 {
-  int res = -1;
+  int res=-1;
   int res_bytes = 0;
 
   if (*buff) {
     logmsg(LOG_NOTICE,
-           "(%lx) the body buffer is not clean. Cleaning it", pthread_self());
-    free(*buff);
-    *buff = NULL;
+             "(%lx) the body buffer is not clean. Cleaning it",
+             pthread_self());
+    free (*buff);
+    *buff  = NULL;
   }
 
   *buff = (char *) malloc(size * sizeof(char));
@@ -430,7 +431,7 @@ int read_body(BIO * sock, char **buff, int size)
 }
 
 
-int waf_resolution(Transaction * t, int *int_code, char **url, char *tag)
+int waf_resolution(Transaction * t, int *int_code, char *url, char *tag)
 {
 
   ModSecurityIntervention intervention;
@@ -439,6 +440,7 @@ int waf_resolution(Transaction * t, int *int_code, char **url, char *tag)
   intervention.log = NULL;
   intervention.disruptive = 0;
   WAF_ACTION waf_action = ALLOW;
+  int size_copy;
 
   if (msc_intervention(t, &intervention)) {
 
@@ -448,6 +450,7 @@ int waf_resolution(Transaction * t, int *int_code, char **url, char *tag)
 
     if (intervention.url) {
       waf_action = REDIRECTION;
+      strcpy(url, intervention.url);
       if (intervention.status == 200)
         intervention.status = 302;      // default value
     } else if (intervention.disruptive) {

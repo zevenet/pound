@@ -550,7 +550,7 @@ int main(const int argc, char **argv)
 #ifdef  UPER
     if ((son = fork()) > 0) {
       int status;
-      reload_flag = 1;
+      reload_flag=1;
       (void) wait(&status);
       if (WIFEXITED(status))
         logmsg(LOG_ERR, "MONITOR: worker exited normally %d, restarting...",
@@ -580,6 +580,7 @@ int main(const int argc, char **argv)
         logmsg(LOG_ERR, "create thr_resurect: %s - aborted", strerror(errno));
         exit(1);
       }
+
 #if WAF
       // Reload WAF rules if there was an worker exit
       if (reload_flag) {

@@ -1149,8 +1149,7 @@ void do_http(thr_arg * arg)
 
       // logmsg(LOG_DEBUG, "%s (%lx) read REQ_BODY? max_body (%d) > cont (%lld), chunked (%d), is_rpc (%d) ",
       //   buf_log_tag, pthread_self(), body_max_size, cont, chunked, is_rpc);
-      if (waf_body_enabled
-          (body_max_size, buf_log_tag, cont, chunked, is_rpc, no_cont)) {
+      if (waf_body_enabled(body_max_size, buf_log_tag, cont, chunked, is_rpc, no_cont)) {
         if (read_body(cl, &body_buff, cont) == -1) {
           logmsg(LOG_NOTICE, "(%lx) error managing HTTP request body",
                  pthread_self());
@@ -1164,7 +1163,7 @@ void do_http(thr_arg * arg)
       msc_process_request_body(modsec_transaction);
 
       waf_action =
-        waf_resolution(modsec_transaction, &waf_code, &buf, buf_log_tag);
+        waf_resolution(modsec_transaction, &waf_code, buf, buf_log_tag);
       if (waf_action != ALLOW) {
         if (waf_action == BLOCK)
           err_reply(cl, h403, "replied forbidden");
@@ -1906,8 +1905,7 @@ void do_http(thr_arg * arg)
         //  logmsg(LOG_DEBUG, "%s (%lx) read RESPONSE_BODY? max_body (%d) > cont (%lld), chunked (%d), is_rpc (%d) ",
         //    buf_log_tag, pthread_self(), body_max_size, cont, chunked, is_rpc);
 
-        if (waf_body_enabled
-            (body_max_size, buf_log_tag, cont, chunked, is_rpc, no_cont)) {
+        if (waf_body_enabled(body_max_size, buf_log_tag, cont, chunked, is_rpc, no_cont)) {
           if (read_body(be, &body_buff, cont) == -1) {
             logmsg(LOG_NOTICE, "(%lx) error managing HTTP response body",
                    pthread_self());
@@ -1921,7 +1919,8 @@ void do_http(thr_arg * arg)
         msc_process_response_body(modsec_transaction);
 
         waf_action =
-          waf_resolution(modsec_transaction, &waf_code, &buf, buf_log_tag);
+          waf_resolution(modsec_transaction, &waf_code, buf, buf_log_tag);
+
         if (waf_action != ALLOW) {
           // Reply error
           if (waf_action == BLOCK)
@@ -2031,7 +2030,7 @@ void do_http(thr_arg * arg)
 
       if (!no_cont) {
         // if body has been read, it was saved in a buffer
-        if (body_buff != NULL) {
+        if (body_buff != NULL ) {
           if (BIO_write(cl, body_buff, cont) != cont) {
             if (errno)
               logmsg(LOG_NOTICE, "%s (%lx) error write request pending: %s",

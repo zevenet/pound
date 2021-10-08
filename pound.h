@@ -308,7 +308,7 @@ int waf_add_http_info(Transaction *t, const char *header);
 int waf_add_req_head(Transaction *t, char const **headers, int num_headers);
 int waf_add_resp_head(Transaction * t, char const **headers, int num_headers);
 int read_body(BIO *sock, char **buff, int size);
-int waf_resolution(Transaction *t,int *int_code, char **url, char *);
+int waf_resolution(Transaction *t,int *int_code, char *url, char *);
 #endif
 
 extern char *user, /* user to run as */

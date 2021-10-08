@@ -549,10 +549,10 @@ static BACKEND *parse_be(const int is_emergency)
       if (!res->bekey) {
         if (res->addr.ai_family == AF_INET)
           snprintf(lin, MAXBUF - 1, "4-%08x-%x",
-                   htonl(((struct sockaddr_in *) (res->addr.ai_addr))->sin_addr.
-                         s_addr),
-                   htons(((struct sockaddr_in *) (res->addr.ai_addr))->
-                         sin_port));
+                   htonl(((struct sockaddr_in *) (res->addr.ai_addr))->
+                         sin_addr.s_addr),
+                   htons(((struct sockaddr_in *) (res->addr.
+                                                  ai_addr))->sin_port));
         else if (res->addr.ai_family == AF_INET6) {
           cp = (char *)
             &(((struct sockaddr_in6 *) (res->addr.ai_addr))->sin6_addr);
@@ -560,8 +560,8 @@ static BACKEND *parse_be(const int is_emergency)
                    "6-%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x-%x",
                    cp[0], cp[1], cp[2], cp[3], cp[4], cp[5], cp[6], cp[7],
                    cp[8], cp[9], cp[10], cp[11], cp[12], cp[13], cp[14], cp[15],
-                   htons(((struct sockaddr_in6 *) (res->addr.ai_addr))->
-                         sin6_port));
+                   htons(((struct sockaddr_in6 *) (res->addr.
+                                                   ai_addr))->sin6_port));
         } else
           conf_err("cannot autogenerate backendkey, please specify one");
 

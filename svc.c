@@ -383,8 +383,8 @@ addr2IpAndPort(char *const res, int *return_port, const int res_len,
       if (IN6_IS_ADDR_V4MAPPED
           (&(((struct sockaddr_in6 *) addr->ai_addr)->sin6_addr))) {
         src =
-          (void *) &((struct sockaddr_in6 *) addr->ai_addr)->sin6_addr.
-          s6_addr[12];
+          (void *) &((struct sockaddr_in6 *) addr->ai_addr)->
+          sin6_addr.s6_addr[12];
         if (inet_ntop(AF_INET, src, buf, MAXBUF - 1) == NULL)
           strncpy(buf, "(UNKNOWN)", MAXBUF - 1);
       } else {
@@ -440,8 +440,8 @@ addr2str(char *const res, const int res_len, const struct addrinfo *addr,
       if (IN6_IS_ADDR_V4MAPPED
           (&(((struct sockaddr_in6 *) addr->ai_addr)->sin6_addr))) {
         src =
-          (void *) &((struct sockaddr_in6 *) addr->ai_addr)->sin6_addr.
-          s6_addr[12];
+          (void *) &((struct sockaddr_in6 *) addr->ai_addr)->
+          sin6_addr.s6_addr[12];
         if (inet_ntop(AF_INET, src, buf, MAXBUF - 1) == NULL)
           strncpy(buf, "(UNKNOWN)", MAXBUF - 1);
       } else {
@@ -1210,7 +1210,7 @@ need_rewrite(const int rewr_loc, char *const location, char *const path,
           sizeof(in_addr.sin_addr.s_addr)) == 0 || strcasecmp(host, buf) == 0)
         &&
         (memcmp(&be_addr.sin_port, &in_addr.sin_port, sizeof(in_addr.sin_port))
-         != 0 || strcasecmp(proto, lstn->ctx ? "http" : "https"))) {
+         != 0 || strcasecmp(proto, lstn->ctx ? "https" : "http"))) {
       free(addr.ai_addr);
       return 1;
     }
@@ -1227,7 +1227,7 @@ need_rewrite(const int rewr_loc, char *const location, char *const path,
         (memcmp
          (&be6_addr.sin6_port, &in6_addr.sin6_port,
           sizeof(in6_addr.sin6_port)) != 0
-         || strcasecmp(proto, lstn->ctx ? "http" : "https"))) {
+         || strcasecmp(proto, lstn->ctx ? "https" : "http"))) {
       free(addr.ai_addr);
       return 1;
     }
