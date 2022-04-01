@@ -34,6 +34,7 @@ static void usage(const char *arg0)
 {
   fprintf(stderr, "Usage: %s -c /control/socket [ -X ] cmd\n", arg0);
   fprintf(stderr, "\twhere cmd is one of:\n");
+  fprintf(stderr, "\t-C - this does not list the sessions in listener status retrieve n\n");
   fprintf(stderr, "\t-L n - enable listener n\n");
   fprintf(stderr, "\t-l n - disable listener n\n");
   fprintf(stderr,
@@ -184,7 +185,7 @@ static void sess_prt(const int sock)
   return;
 }
 
-static void svc_prt(const int sock)
+static void svc_prt(const int sock, int session_flag)
 {
   SERVICE svc;
   int n_svc;
@@ -210,7 +211,8 @@ static void svc_prt(const int sock)
                svc.disabled ? "DISABLED" : "active", svc.tot_pri);
     }
     be_prt(sock);
-    sess_prt(sock);
+    if(session_flag)
+     sess_prt(sock);
     if (xml_out)
       printf("</service>\n");
   }
@@ -244,6 +246,8 @@ int main(const int argc, char **argv)
   int c_opt, en_lst, de_lst, en_svc, de_svc, en_be, de_be, a_sess, d_sess,
     f_sess, is_set;
   int reload_waf = 0;
+  int session_flag=1;
+
   LISTENER lstn;
   SERVICE svc;
   BACKEND be;
@@ -257,8 +261,11 @@ int main(const int argc, char **argv)
   memset(&cmd, 0, sizeof(cmd));
   opterr = 0;
   i = 0;
-  while (!i && (c_opt = getopt(argc, argv, "c:LlSsBbNnXHR")) > 0)
+  while (!i && (c_opt = getopt(argc, argv, "Cc:LlSsBbNnXHR")) > 0)
     switch (c_opt) {
+      case 'C':
+        session_flag = 0;
+        break;
       case 'c':
         sock_name = optarg;
         break;
@@ -381,7 +388,10 @@ int main(const int argc, char **argv)
   if (!is_set) {
     if (optind != argc)
       usage(arg0);
-    cmd.cmd = CTRL_LST;
+    if (session_flag)
+     cmd.cmd = CTRL_LST;
+    else
+     cmd.cmd = CTRL_LST_CONNS;
   }
 
   if (reload_waf)
@@ -415,13 +425,13 @@ int main(const int argc, char **argv)
         printf("%3d. %s Listener %s %s\n", n_lstn++,
                lstn.ctx ? "HTTPS" : "http", prt_addr(&lstn.addr),
                lstn.disabled ? "*D" : "a");
-      svc_prt(sock);
+      svc_prt(sock, session_flag);
       if (xml_out)
         printf("</listener>\n");
     }
     if (!xml_out)
       printf(" -1. Global services\n");
-    svc_prt(sock);
+    svc_prt(sock, session_flag);
     if (xml_out)
       printf("</pound>\n");
   }

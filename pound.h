@@ -557,6 +557,7 @@ typedef enum {
 /* control request stuff */
 typedef enum {
   CTRL_LST,
+  CTRL_LST_CONNS,
   CTRL_EN_LSTN,
   CTRL_DE_LSTN,
   CTRL_EN_SVC,

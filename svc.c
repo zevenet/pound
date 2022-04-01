@@ -2079,6 +2079,7 @@ void *thr_control(void *arg)
   BACKEND *be, dummy_be;
   TABNODE dummy_sess;
   struct pollfd polls;
+  int session_flag = 1;
 
   /* just to be safe */
   if (control_sock < 0)
@@ -2108,6 +2109,14 @@ void *thr_control(void *arg)
       logmsg(LOG_WARNING, "thr_control() read: %s", strerror(errno));
       continue;
     }
+
+    if (cmd.cmd == CTRL_LST_CONNS){
+        cmd.cmd = CTRL_LST;
+        session_flag = 0;
+    } else if (cmd.cmd == CTRL_LST) {
+        session_flag = 1;
+    }
+
     switch (cmd.cmd) {
       case CTRL_LST:
         /* logmsg(LOG_INFO, "thr_control() list"); */
@@ -2129,15 +2138,18 @@ void *thr_control(void *arg)
                 (void) write(ctl, be->ha_addr.ai_addr, be->ha_addr.ai_addrlen);
             }
             (void) write(ctl, (void *) &dummy_be, sizeof(BACKEND));
-            if (dummy = pthread_mutex_lock(&svc->mut))
-              logmsg(LOG_WARNING, "thr_control() lock: %s", strerror(dummy));
-            else {
-              dump_sess(ctl, svc->sessions, svc->backends);
-              if (dummy = pthread_mutex_unlock(&svc->mut))
-                logmsg(LOG_WARNING, "thr_control() unlock: %s",
-                       strerror(dummy));
+
+            if(session_flag){
+                if (dummy = pthread_mutex_lock(&svc->mut))
+                  logmsg(LOG_WARNING, "thr_control() lock: %s", strerror(dummy));
+                else {
+                  dump_sess(ctl, svc->sessions, svc->backends);
+                  if (dummy = pthread_mutex_unlock(&svc->mut))
+                    logmsg(LOG_WARNING, "thr_control() unlock: %s",
+                           strerror(dummy));
+                }
+                (void) write(ctl, (void *) &dummy_sess, sizeof(TABNODE));
             }
-            (void) write(ctl, (void *) &dummy_sess, sizeof(TABNODE));
           }
           (void) write(ctl, (void *) &dummy_svc, sizeof(SERVICE));
         }
@@ -2155,14 +2167,16 @@ void *thr_control(void *arg)
               (void) write(ctl, be->ha_addr.ai_addr, be->ha_addr.ai_addrlen);
           }
           (void) write(ctl, (void *) &dummy_be, sizeof(BACKEND));
-          if (dummy = pthread_mutex_lock(&svc->mut))
-            logmsg(LOG_WARNING, "thr_control() lock: %s", strerror(dummy));
-          else {
-            dump_sess(ctl, svc->sessions, svc->backends);
-            if (dummy = pthread_mutex_unlock(&svc->mut))
-              logmsg(LOG_WARNING, "thr_control() unlock: %s", strerror(dummy));
+          if(session_flag) {
+              if (dummy = pthread_mutex_lock(&svc->mut))
+                logmsg(LOG_WARNING, "thr_control() lock: %s", strerror(dummy));
+              else {
+                dump_sess(ctl, svc->sessions, svc->backends);
+                if (dummy = pthread_mutex_unlock(&svc->mut))
+                  logmsg(LOG_WARNING, "thr_control() unlock: %s", strerror(dummy));
+              }
+              (void) write(ctl, (void *) &dummy_sess, sizeof(TABNODE));
           }
-          (void) write(ctl, (void *) &dummy_sess, sizeof(TABNODE));
         }
         (void) write(ctl, (void *) &dummy_svc, sizeof(SERVICE));
         break;

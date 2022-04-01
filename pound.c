@@ -493,7 +493,7 @@ int main(const int argc, char **argv)
   msc_set_log_cb(waf_api, (void *) logmsg_cb);
 #endif
 
-  //daemonize=0;    // Debug
+  // daemonize=0;    // Debug
   if (daemonize) {
     /* daemonize - make ourselves a subprocess. */
     switch (fork()) {
