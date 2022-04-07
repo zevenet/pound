@@ -32,9 +32,12 @@ static int host_names = 0;
 
 static void usage(const char *arg0)
 {
-  fprintf(stderr, "Usage: %s -c /control/socket [ -X ] cmd\n", arg0);
-  fprintf(stderr, "\twhere cmd is one of:\n");
-  fprintf(stderr, "\t-C - this does not list the sessions in listener status retrieve n\n");
+  fprintf(stderr, "Usage: %s -c /control/socket [ -X ] [-t timeout] cmd\n", arg0);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "\tlist of options:\n");
+  fprintf(stderr, "\t-t <timeout> - it is the number of seconds to timeout the current poundctl execution. 20 seconds by default\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "\tlist of commands:\n");
   fprintf(stderr, "\t-L n - enable listener n\n");
   fprintf(stderr, "\t-l n - disable listener n\n");
   fprintf(stderr,
@@ -51,14 +54,16 @@ static void usage(const char *arg0)
           "\t-N n m k r - add a session with key k and back-end r in service m in listener n\n");
   fprintf(stderr,
           "\t-n n m k - remove a session with key k r in service m in listener n\n");
+  fprintf(stderr,
+          "\t-R - flag reload the WAF configation from the configuation file.\n");
   fprintf(stderr, "\n");
   fprintf(stderr,
           "\tentering the command without arguments lists the current configuration.\n");
   fprintf(stderr, "\tthe -X flag results in XML output.\n");
   fprintf(stderr,
           "\tthe -H flag shows symbolic host names instead of addresses.\n");
-  fprintf(stderr,
-          "\tthe -R flag reload the WAF configation from the configuation file.\n");
+  fprintf(stderr, "\tthe -C flag does not list the sessions in listener status retrieve.\n");
+
   exit(1);
 }
 
@@ -238,6 +243,14 @@ static int get_sock(const char *sock_name)
   return res;
 }
 
+
+void *checkTimeout(void *dummy){
+    int *timeout = (int *)dummy;
+    sleep(*timeout);
+    fprintf(stderr, "timeout reached: %d", *timeout);
+    exit(1);
+}
+
 int main(const int argc, char **argv)
 {
   CTRL_CMD cmd;
@@ -247,6 +260,11 @@ int main(const int argc, char **argv)
     f_sess, is_set;
   int reload_waf = 0;
   int session_flag=1;
+  int timeout=20;
+  int *timeout_ptr=&timeout;
+
+  pthread_t thr;
+  pthread_attr_t attr;
 
   LISTENER lstn;
   SERVICE svc;
@@ -261,10 +279,13 @@ int main(const int argc, char **argv)
   memset(&cmd, 0, sizeof(cmd));
   opterr = 0;
   i = 0;
-  while (!i && (c_opt = getopt(argc, argv, "Cc:LlSsBbNnXHR")) > 0)
+  while (!i && (c_opt = getopt(argc, argv, "t:Cc:LlSsBbNnXHR")) > 0)
     switch (c_opt) {
       case 'C':
         session_flag = 0;
+        break;
+      case 't':
+        timeout = atoi(optarg);
         break;
       case 'c':
         sock_name = optarg;
@@ -397,12 +418,18 @@ int main(const int argc, char **argv)
   if (reload_waf)
     cmd.cmd = REL_WAF;
 
+  // Enable timeout
+  pthread_attr_init(&attr);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+  if (pthread_create(&thr, &attr, checkTimeout, (void *)timeout_ptr)) {
+        fprintf(stderr, "create thr_control: %s - aborted", strerror(errno));
+        exit(1);
+    }
+
   sock = get_sock(sock_name);
   write(sock, (void *) &cmd, sizeof(cmd));
-
   if (!is_set) {
     int n;
-
     n_lstn = 0;
     if (xml_out)
       printf("<pound>\n");

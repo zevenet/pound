@@ -3,7 +3,7 @@
 poundctl \- control the pound(8) daemon
 .SH SYNOPSIS
 .TP
-.B poundctl \fI-c /path/to/socket\fR [\fI-L/-l\fR] [\fI-S/-s\fR] [\fI-B/-b\fR] [\fI-N/-n\fR] [\fI-H\fR] [\fI-X\fR]
+.B poundctl \fI-c /path/to/socket\fR [\fI-t timeout\fR] command
 .SH DESCRIPTION
 .PP
 .B Poundctl
@@ -23,6 +23,14 @@ configuration file must contain the directive
 for
 .B poundctl
 to work.
+.TP
+\fB\-t n\fR
+set a timeout in seconds for poundctl execution. 20 seconds by default.
+.TP
+Commands available:
+The parameters n, m and r refer to the number assigned to a particular listener,
+service and back-end in the listings. A listener number of -1 refers by convention
+to the global context.
 .TP
 \fB\-L/-l n\fR
 Enable/disable a listener. A disabled listener will stop accepting connection
@@ -44,10 +52,17 @@ back-end r.
 .TP
 \fB\-n n m k\fR
 Remove a session from service m in listener n. The session key is k.
-.PP
-The parameters n, m and r refer to the number assigned to a particular listener,
-service and back-end in the listings. A listener number of -1 refers by convention
-to the global context.
+.TP
+\fB\-R\fR
+Reload the WAF configation from the configuation file. If the configuration fails,
+the rulesets will not be modified.
+.TP
+Options when there is not a command:
+When called without flags
+.B poundctl
+will print out a listing of the
+.B Pound
+internal state.
 .TP
 \fB\-H\fR
 Try to resolve the addresses to symbolic names. Depending on your configuration,
@@ -56,15 +71,9 @@ this may require an active DNS.
 \fB\-X\fR
 Show the results in XML format.
 .TP
-\fB\-R\fR
-Reload the WAF configation from the configuation file. If the configuration fails,
-the rulesets will not be modified.
+\fB\-C\fR
+Does not list the sessions in listener status retrieve.
 .PP
-When called without flags
-.B poundctl
-will print out a listing of the
-.B Pound
-internal state.
 .SH AUTHOR
 Written by Robert Segall, Apsis GmbH.
 .SH "REPORTING BUGS"

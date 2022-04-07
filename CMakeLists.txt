@@ -158,3 +158,4 @@
 
 
     target_link_libraries(${PROJECT_NAME} ${PCRE_LIBRARIES} ${OPENSSL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} libmodsecurity.so)
+    target_link_libraries(${PROJECT_NAME}ctl ${CMAKE_THREAD_LIBS_INIT})
