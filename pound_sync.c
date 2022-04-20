@@ -182,22 +182,29 @@ int send_action(POUND_ACTION * action)
   int res = 0;
   int sent = 0;
   int count = 0;
-  int size = 0;
+  int tries = 0;
+  unsigned int size = 0;
   char *buffer = serialize(action, &size);
   if (size > 0) {
     pthread_mutex_lock(&send_lock);
     while (sent < size) {
       count = send(conn_sock, buffer + sent, size - sent, MSG_NOSIGNAL);
       if ((count == -1) && (errno == EWOULDBLOCK || errno == EAGAIN)) {
-        usleep(5000);
-        continue;
+        if (tries > 2) {
+            logmsg(LOG_ERR, "sync_thread; send() socket busy (tries:%d): limit of tries reached", tries);
+            res = -1;
+            break;
+        } else {
+            logmsg(LOG_NOTICE, "sync_thread; send() socket busy (tries:%d): %s", tries, strerror(errno));
+            usleep(5000);
+            tries++;
+            continue;
+        }
       } else if (count == (size - sent))
         break;
       else if (count < 0) {
-        //if(count == EPIPE){
         sync_is_running = 0;
         close(conn_sock);
-        //}
         logmsg(LOG_ERR, "sync_thread; send() failed: %s", strerror(errno));
         res = -1;
         break;
