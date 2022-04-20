@@ -25,7 +25,7 @@
 
 #INCLUDES=-I/usr/local/modsecurity/include/ -L/usr/local/modsecurity/lib -Wl,-rpath=/usr/local/modsecurity/lib
 
-CC=@PTHREAD_CC@ -g -rdynamic $(INCLUDES)
+CC=@PTHREAD_CC@ -g -ldl -rdynamic $(INCLUDES)
 
 # TODO: add to configure
 C_WAF=-DWAF=1
@@ -33,7 +33,7 @@ C_WAF=-DWAF=1
 CFLAGS=-DF_CONF=\"@sysconfdir@/pound.cfg\" -DVERSION=\"@PACKAGE_VERSION@\" -DC_SSL=\"@C_SSL@\" -DC_T_RSA=\"@C_T_RSA@\" \
 	-DC_DH_LEN=\"@C_DH_LEN@\" -DC_MAXBUF=\"@C_MAXBUF@\" -DC_OWNER=\"@C_OWNER@\" -DC_GROUP=\"@C_GROUP@\" \
     -DC_SUPER=\"@C_SUPER@\" -DC_CERT1L=\"@C_CERT1L@\" @CFLAGS@ @PTHREAD_CFLAGS@ @CPPFLAGS@ ${C_WAF}
-LIBS=@LIBS@ @PTHREAD_LIBS@ -lmodsecurity
+LIBS=@LIBS@ @PTHREAD_LIBS@ -lmodsecurity -ldl
 
 prefix=@prefix@
 exec_prefix=@exec_prefix@

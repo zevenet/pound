@@ -27,7 +27,7 @@
 
 #include "pound.h"
 #include "pound_sync.h"
-#include <execinfo.h>
+
 
 /* common variables */
 char *conf_name;
@@ -192,7 +192,7 @@ thr_arg *get_thr_arg(void)
 /*
  * get the current queue length
  */
-get_thr_qlen(void)
+int get_thr_qlen(void)
 {
   int res;
   thr_arg *tap;
@@ -237,33 +237,77 @@ static RETSIGTYPE h_shut(const int sig)
     shut_down = 1;
 }
 
-void handler(int sig)
-{
-  void *array[100];
-  char **strings;
-  int j, nptrs;
-
-  // get void*'s for all entries on the stack
-  nptrs = backtrace(array, 10);
-  // print out all the frames to stderr
-  logmsg(LOG_ERR, "Error: signal %d:\n", sig);
-  strings = backtrace_symbols(array, nptrs);
-  if (strings == NULL) {
-    logmsg(LOG_ERR, "backtrace_symbols");
-    exit(EXIT_FAILURE);
-  }
-
-  for (j = 0; j < nptrs; j++)
-    logmsg(LOG_ERR, "backtrace_symbols: %s", strings[j]);
-  free(strings);
-  exit(EXIT_FAILURE);
-}
-
 
 // data to waf log output
 static void logmsg_cb(void *data, const void *message)
 {
   logmsg(LOG_INFO, "%s", (const char *) message);
+}
+
+/****  BACKTRACE  ****/
+
+size_t ConvertToVMA(size_t addr)
+{
+    Dl_info info;
+    struct link_map *link_map;
+    dladdr1((void *)addr, &info, (void **)&link_map, RTLD_DL_LINKMAP);
+    return addr - link_map->l_addr;
+}
+
+void zcu_bt_print(void)
+{
+    void *callstack[128];
+    int frame_count =
+        backtrace(callstack, sizeof(callstack) / sizeof(callstack[0]));
+    FILE *fp;
+    char path[ZCU_DEF_BUFFER_SIZE];
+
+    if (!frame_count) {
+        logmsg(LOG_ERR, "No backtrace strings found!");
+        exit(EXIT_FAILURE);
+    } else {
+        for (int i = 0; i < frame_count; i++) {
+            Dl_info info;
+            if (dladdr(callstack[i], &info)) {
+                char command[256];
+                size_t VMA_addr =
+                    ConvertToVMA((size_t)callstack[i]);
+                VMA_addr -=
+                    1; // https://stackoverflow.com/questions/11579509/wrong-line-numbers-from-addr2line/63841497#63841497
+                snprintf(command, sizeof(command),
+                     "addr2line -e %s -Ci %zx",
+                     info.dli_fname, VMA_addr);
+
+                /* Open the command for reading. */
+                fp = popen(command, "r");
+                if (fp == NULL) {
+                    logmsg(LOG_ERR,
+                              "Failed to run: %s",
+                              command);
+                    exit(EXIT_FAILURE);
+                } else {
+                    /* Read the output a line at a time - output it. */
+                    while (fgets(path, sizeof(path), fp) !=
+                           NULL) {
+                        printf("%s", path);
+                    }
+
+                    logmsg(LOG_ERR, "Backtrace: %s",
+                              path);
+
+                    /* close */
+                    pclose(fp);
+                }
+            }
+        }
+    }
+}
+
+void handler(int sig)
+{
+    logmsg(LOG_ERR, "Error: signal %d", sig);
+    zcu_bt_print();
+    exit(EXIT_FAILURE);
 }
 
 
@@ -273,7 +317,6 @@ static void logmsg_cb(void *data, const void *message)
  * Arguments:
  *  -f config_file      configuration file - exclusive of other flags
  */
-
 int main(const int argc, char **argv)
 {
   int n_listeners, i, clnt_length, clnt;

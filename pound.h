@@ -27,6 +27,10 @@
 
 #ifndef POUND_H
 #define POUND_H
+
+#define _GNU_SOURCE
+#include <link.h>
+
 #include "config.h"
 #include <math.h>
 #include <stdio.h>
@@ -252,7 +256,6 @@
 #ifndef __STDC__
 #define const
 #endif
-
 #ifdef HAVE_LONG_LONG_INT
 #define LONG long long
 #define L0 0LL
@@ -358,6 +361,8 @@ extern int SOL_TCP;
 #endif
 #define MAXADDRBUFF 4096
 #define MAXHEADERS 128
+#define ZCU_DEF_BUFFER_SIZE 4096
+
 
 #ifndef F_CONF
 #define F_CONF "/usr/local/etc/pound.cfg"
@@ -606,7 +611,7 @@ extern thr_arg *get_thr_arg(void);
 /*
  * get the current queue length
  */
-extern get_thr_qlen(void);
+extern int get_thr_qlen(void);
 
 /*
  * handle an HTTP request
