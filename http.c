@@ -564,6 +564,69 @@ void decrease_backend_conn(BACKEND * backend)
 }
 
 
+static int zcu_str_find_str(int *off_start, int *off_end, const char *ori_str,
+		     int ori_len, const char *match_str, int match_len)
+{
+	int i, flag = 0;
+	*off_start = -1;
+	*off_end = -1;
+
+	for (i = 0; i < ori_len && flag < match_len; i++) {
+		if (ori_str[i] == match_str[flag]) {
+			if (flag == 0)
+				*off_start = i;
+			flag++;
+		} else
+			flag = 0;
+	}
+	if (flag == 0)
+		return 0;
+
+	*off_end = *off_start + match_len;
+	return 1;
+}
+
+
+static int zcu_str_replace_str(char *buf, const char *ori_str, int ori_len,
+			const char *match_str, int match_len, char *replace_str,
+			int replace_len)
+{
+	int offst = -1, offend = -1, offcopy = 0,
+	    buf_len = ori_len - match_len + replace_len;
+
+	if (!zcu_str_find_str(&offst, &offend, ori_str, ori_len, match_str,
+			      match_len)) {
+		logmsg(LOG_DEBUG, "String didn't match %.*s", ori_len,
+			      ori_str);
+		return 0;
+	}
+
+	logmsg(LOG_DEBUG, "String matches %.*s", ori_len, ori_str);
+
+	if (buf_len > ZCU_DEF_BUFFER_SIZE) {
+		logmsg(
+			LOG_ERR,
+			"String could not be replaced, the buffer size is not enought - %.*s",
+			ori_len, ori_str);
+		return 0;
+	}
+
+	if (offst != 0) {
+		memcpy(buf, ori_str, offst);
+	}
+
+	offcopy += offst;
+	memcpy(buf + offcopy, replace_str, replace_len);
+
+	if (offend != ori_len) {
+		offcopy += replace_len;
+		memcpy(buf + offcopy, ori_str + offend, ori_len - offend);
+	}
+	buf[buf_len] = '\0';
+
+	return 1;
+}
+
 
 /*
  * handle an HTTP request
@@ -1659,11 +1722,16 @@ void do_http(thr_arg * arg)
     /* if we have a redirector */
     if (cur_backend->be_type) {
       memset(buf, 0, sizeof(buf));
-      if (!cur_backend->redir_req)
-        strncpy(buf, cur_backend->url, sizeof(buf) - 1);
-      else if (cur_backend->redir_req == 1)
-        snprintf(buf, sizeof(buf) - 1, "%s%s", cur_backend->url, url);
-      else {
+      if (!cur_backend->redir_req) {
+        zcu_str_replace_str(
+          buf, cur_backend->url, strlen(cur_backend->url), "${VHOST}", 8,
+          v_host, strlen(v_host));
+      } else if (cur_backend->redir_req == 1) {
+        zcu_str_replace_str(
+          buf, cur_backend->url, strlen(cur_backend->url), "${VHOST}", 8,
+          v_host, strlen(v_host));
+		strcat(buf, url);
+      } else {
         regmatch_t umtch[10];
         char *chptr, *enptr, *srcptr;
 
