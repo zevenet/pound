@@ -460,6 +460,8 @@ int waf_resolution(Transaction * t, int *int_code, char *url, char *tag)
     }
   }
 
+  *int_code = intervention.status;
+
   if (intervention.log != NULL)
     logmsg(LOG_WARNING, "[WAF,%s] (%lx) %s", tag, pthread_self(),
            intervention.log);
