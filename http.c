@@ -53,7 +53,7 @@ static void err_reply(BIO * const c, const char *head, const char *txt)
  */
 static void redirect_reply(BIO * const c, const char *url, const int code)
 {
-  char rep[MAXBUF], cont[MAXBUF], safe_url[MAXBUF], *code_msg;
+  char rep[MAXBUF], cont[MAXBUF], *code_msg;
   int i, j;
 
   switch (code) {
@@ -70,22 +70,12 @@ static void redirect_reply(BIO * const c, const char *url, const int code)
   /*
    * Make sure to return a safe version of the URL (otherwise CSRF becomes a possibility)
    */
-  memset(safe_url, 0, MAXBUF);
-  for (i = j = 0; i < MAXBUF && j < MAXBUF && url[i]; i++)
-    if (isalnum(url[i]) || url[i] == '_' || url[i] == '.' || url[i] == ':'
-        || url[i] == '/' || url[i] == '?' || url[i] == '&' || url[i] == ';'
-        || url[i] == '-' || url[i] == '=')
-      safe_url[j++] = url[i];
-    else {
-      sprintf(safe_url + j, "%%%02x", url[i]);
-      j += 3;
-    }
   snprintf(cont, sizeof(cont),
            "<html><head><title>Redirect</title></head><body><h1>Redirect</h1><p>You should go to <a href=\"%s\">%s</a></p></body></html>",
-           safe_url, safe_url);
+           url, url);
   snprintf(rep, sizeof(rep),
            "HTTP/1.0 %d %s\r\nLocation: %s\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n",
-           code, code_msg, safe_url, strlen(cont));
+           code, code_msg, url, strlen(cont));
   BIO_write(c, rep, strlen(rep));
   BIO_write(c, cont, strlen(cont));
   BIO_flush(c);
@@ -650,7 +640,7 @@ void do_http(thr_arg * arg)
   struct sockaddr_storage from_host_addr;
   BIO *oldcl, *cl, *be, *bb, *b64;
   X509 *x509;
-  char request[MAXBUF], response[MAXBUF], buf[MAXBUF], url[MAXBUF],
+  char request[MAXBUF], response[MAXBUF], buf[MAXBUF], url[MAXBUF], url_orig[MAXBUF],
     loc_path[MAXBUF], **headers, headers_ok[MAXHEADERS], v_host[MAXBUF],
     referer[MAXBUF], u_agent[MAXBUF], u_name[MAXBUF], caddr[MAXADDRBUFF],
     req_time[LOG_TIME_SIZE], s_res_bytes[LOG_BYTES_SIZE], *mh,
@@ -839,6 +829,7 @@ void do_http(thr_arg * arg)
       return;
     }
     cl_11 = (request[strlen(request) - 1] == '1');
+    strncpy(url_orig, request + matches[2].rm_so, matches[2].rm_eo - matches[2].rm_so);
     n =
       cpURL(url, request + matches[2].rm_so,
             matches[2].rm_eo - matches[2].rm_so);
@@ -1730,7 +1721,7 @@ void do_http(thr_arg * arg)
         zcu_str_replace_str(
           buf, cur_backend->url, strlen(cur_backend->url), "${VHOST}", 8,
           v_host, strlen(v_host));
-		strcat(buf, url);
+		strcat(buf, url_orig);
       } else {
         regmatch_t umtch[10];
         char *chptr, *enptr, *srcptr;
