@@ -1714,14 +1714,20 @@ void do_http(thr_arg * arg)
     if (cur_backend->be_type) {
       memset(buf, 0, sizeof(buf));
       if (!cur_backend->redir_req) {
-        zcu_str_replace_str(
-          buf, cur_backend->url, strlen(cur_backend->url), "${VHOST}", 8,
-          v_host, strlen(v_host));
+		if (strstr(cur_backend->url, "${VHOST}")) {
+			zcu_str_replace_str(
+			  buf, cur_backend->url, strlen(cur_backend->url), "${VHOST}", 8,
+			  v_host, strlen(v_host));
+		} else
+			strncpy(buf, cur_backend->url, sizeof(buf) - 1);
       } else if (cur_backend->redir_req == 1) {
-        zcu_str_replace_str(
-          buf, cur_backend->url, strlen(cur_backend->url), "${VHOST}", 8,
-          v_host, strlen(v_host));
-		strcat(buf, url_orig);
+		if (strstr(cur_backend->url, "${VHOST}")) {
+			zcu_str_replace_str(
+			  buf, cur_backend->url, strlen(cur_backend->url), "${VHOST}", 8,
+			  v_host, strlen(v_host));
+			strcat(buf, url_orig);
+		} else
+			snprintf(buf, sizeof(buf) - 1, "%s%s", cur_backend->url, url_orig);
       } else {
         regmatch_t umtch[10];
         char *chptr, *enptr, *srcptr;
