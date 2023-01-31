@@ -640,7 +640,7 @@ void do_http(thr_arg * arg)
   struct sockaddr_storage from_host_addr;
   BIO *oldcl, *cl, *be, *bb, *b64;
   X509 *x509;
-  char request[MAXBUF], response[MAXBUF], buf[MAXBUF], url[MAXBUF], url_orig[MAXBUF],
+  char request[MAXBUF], response[MAXBUF], buf[MAXBUF], url[MAXBUF], url_orig[MAXBUF] = { 0 },
     loc_path[MAXBUF], **headers, headers_ok[MAXHEADERS], v_host[MAXBUF],
     referer[MAXBUF], u_agent[MAXBUF], u_name[MAXBUF], caddr[MAXADDRBUFF],
     req_time[LOG_TIME_SIZE], s_res_bytes[LOG_BYTES_SIZE], *mh,
