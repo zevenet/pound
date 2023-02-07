@@ -53,7 +53,7 @@ static void usage(const char *arg0)
   fprintf(stderr,
           "\t-N n m k r - add a session with key k and back-end r in service m in listener n\n");
   fprintf(stderr,
-          "\t-n n m k - remove a session with key k r in service m in listener n\n");
+          "\t-n n m k - remove a session with key k in service m in listener n\n");
   fprintf(stderr,
           "\t-R - flag reload the WAF configation from the configuation file.\n");
   fprintf(stderr, "\n");
