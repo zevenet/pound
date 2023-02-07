@@ -279,7 +279,7 @@ int main(const int argc, char **argv)
   memset(&cmd, 0, sizeof(cmd));
   opterr = 0;
   i = 0;
-  while (!i && (c_opt = getopt(argc, argv, "t:Cc:LlSsBbNnXHR")) > 0)
+  while (!i && (c_opt = getopt(argc, argv, "t:Cc:LlSsBbNnXHRf")) > 0)
     switch (c_opt) {
       case 'C':
         session_flag = 0;
