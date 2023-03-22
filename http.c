@@ -526,6 +526,7 @@ static void log_bytes(char *res, const LONG cnt)
     waf_del_transaction(&modsec_transaction); \
     if(waf_rules != NULL) { waf_memo_decrease(waf_rules); waf_memo_clean(waf_rules); } \
     if(body_buff != NULL) {free(body_buff); body_buff = NULL; } \
+    if(url_orig != NULL) {free(url_orig); url_orig = NULL; } \
     clear_error(); \
 }
 
@@ -640,7 +641,7 @@ void do_http(thr_arg * arg)
   struct sockaddr_storage from_host_addr;
   BIO *oldcl, *cl, *be, *bb, *b64;
   X509 *x509;
-  char request[MAXBUF], response[MAXBUF], buf[MAXBUF], url[MAXBUF], url_orig[MAXBUF] = { 0 },
+  char request[MAXBUF], response[MAXBUF], buf[MAXBUF], url[MAXBUF],
     loc_path[MAXBUF], **headers, headers_ok[MAXHEADERS], v_host[MAXBUF],
     referer[MAXBUF], u_agent[MAXBUF], u_name[MAXBUF], caddr[MAXADDRBUFF],
     req_time[LOG_TIME_SIZE], s_res_bytes[LOG_BYTES_SIZE], *mh,
@@ -656,6 +657,7 @@ void do_http(thr_arg * arg)
   double start_req, end_req;
   RENEG_STATE reneg_state;
   BIO_ARG ba1, ba2;
+  char *url_orig = NULL;
 
   reneg_state = RENEG_INIT;
   ba1.reneg_state = &reneg_state;
@@ -829,6 +831,7 @@ void do_http(thr_arg * arg)
       return;
     }
     cl_11 = (request[strlen(request) - 1] == '1');
+    url_orig = calloc(MAXBUF, sizeof(char));
     strncpy(url_orig, request + matches[2].rm_so, matches[2].rm_eo - matches[2].rm_so);
     n =
       cpURL(url, request + matches[2].rm_so,
