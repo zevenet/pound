@@ -526,7 +526,6 @@ static void log_bytes(char *res, const LONG cnt)
     waf_del_transaction(&modsec_transaction); \
     if(waf_rules != NULL) { waf_memo_decrease(waf_rules); waf_memo_clean(waf_rules); } \
     if(body_buff != NULL) {free(body_buff); body_buff = NULL; } \
-    if(url_orig != NULL) {free(url_orig); url_orig = NULL; } \
     clear_error(); \
 }
 
@@ -618,6 +617,7 @@ static int zcu_str_replace_str(char *buf, const char *ori_str, int ori_len,
 	return 1;
 }
 
+char url_orig[MAXBUF] = { 0 };
 
 /*
  * handle an HTTP request
@@ -657,7 +657,6 @@ void do_http(thr_arg * arg)
   double start_req, end_req;
   RENEG_STATE reneg_state;
   BIO_ARG ba1, ba2;
-  char *url_orig = NULL;
 
   reneg_state = RENEG_INIT;
   ba1.reneg_state = &reneg_state;
@@ -831,7 +830,7 @@ void do_http(thr_arg * arg)
       return;
     }
     cl_11 = (request[strlen(request) - 1] == '1');
-    url_orig = calloc(MAXBUF, sizeof(char));
+    url_orig[0] = '\0';
     strncpy(url_orig, request + matches[2].rm_so, matches[2].rm_eo - matches[2].rm_so);
     n =
       cpURL(url, request + matches[2].rm_so,
