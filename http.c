@@ -586,12 +586,8 @@ static int zcu_str_replace_str(char *buf, const char *ori_str, int ori_len,
 
 	if (!zcu_str_find_str(&offst, &offend, ori_str, ori_len, match_str,
 			      match_len)) {
-		logmsg(LOG_DEBUG, "String didn't match %.*s", ori_len,
-			      ori_str);
 		return 0;
 	}
-
-	logmsg(LOG_DEBUG, "String matches %.*s", ori_len, ori_str);
 
 	if (buf_len > ZCU_DEF_BUFFER_SIZE) {
 		logmsg(
