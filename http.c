@@ -826,7 +826,7 @@ void do_http(thr_arg * arg)
       return;
     }
     cl_11 = (request[strlen(request) - 1] == '1');
-    url_orig[0] = '\0';
+    memset(url_orig, '\0', MAXBUF);
     strncpy(url_orig, request + matches[2].rm_so, matches[2].rm_eo - matches[2].rm_so);
     n =
       cpURL(url, request + matches[2].rm_so,
