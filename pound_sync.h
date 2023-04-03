@@ -27,12 +27,12 @@ void free_action(POUND_ACTION *action);
 int process_action(POUND_ACTION *action);
 int init_pound_sync(void);
 int send_action(POUND_ACTION *action);
-void set_objects_key_id();
+void set_objects_key_id(void);
 static void t_send_arg(TABNODE *t, SERVICE *srv);
 void handle_sync_request(int fd);
 void notify(ACTION_TYPE action, int listener, int service, char *key,
             void *content, unsigned int last_access);
-void receive_task();
+void receive_task(void);
 void start_sync_thr(void);
 void stop_session_sync(void);
 #endif

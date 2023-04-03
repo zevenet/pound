@@ -307,11 +307,13 @@ void waf_del_transaction(Transaction **transac);
 void waf_create_transaction(Transaction **t, ModSecurity *ms, Rules *rules);
 int waf_reload_rules(void);
 int waf_body_enabled(int bodybuf, const char *logtag, LONG body_size, int chunked, int rpc, int no_cont);
-int waf_add_http_info(Transaction *t, const char *header);
-int waf_add_req_head(Transaction *t, char const **headers, int num_headers);
-int waf_add_resp_head(Transaction * t, char const **headers, int num_headers);
+int waf_add_req_head(Transaction *t, const char **headers, int num_headers);
+int waf_add_resp_head(Transaction * t, const char **headers, int num_headers);
 int read_body(BIO *sock, char **buff, int size);
 int waf_resolution(Transaction *t,int *int_code, char *url, char *);
+int waf_check_rule(char *rule_str);
+int waf_check_set(char *file);
+
 #endif
 
 extern char *user, /* user to run as */

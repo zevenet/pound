@@ -1196,7 +1196,7 @@ void do_http(thr_arg * arg)
       msc_process_connection(modsec_transaction, ip_ori, port_ori, ip_dst,
                              port_dst);
 
-      waf_add_req_head(modsec_transaction, headers, headers_num);
+      waf_add_req_head(modsec_transaction, (const char **) headers, headers_num);
 
       // logmsg(LOG_DEBUG, "%s (%lx) read REQ_BODY? max_body (%d) > cont (%lld), chunked (%d), is_rpc (%d) ",
       //   buf_log_tag, pthread_self(), body_max_size, cont, chunked, is_rpc);
@@ -1962,7 +1962,7 @@ void do_http(thr_arg * arg)
       //waf response
       if (waf_rules) {
 
-        waf_add_resp_head(modsec_transaction, headers, headers_num);
+        waf_add_resp_head(modsec_transaction, (const char **) headers, headers_num);
 
         //  logmsg(LOG_DEBUG, "%s (%lx) read RESPONSE_BODY? max_body (%d) > cont (%lld), chunked (%d), is_rpc (%d) ",
         //    buf_log_tag, pthread_self(), body_max_size, cont, chunked, is_rpc);

@@ -26,6 +26,7 @@
  */
 
 #include "svc.h"
+#include "pound_sync.h"
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 #define TABNODE_GET_DOWN_LOAD(t) lh_TABNODE_get_down_load(t)
@@ -992,7 +993,7 @@ void kill_be(SERVICE * const svc, const BACKEND * be, const int disable_mode)
   char buf_log_tag[MAXBUF];
 
   /* get a tag for logs with backend and service */
-  get_bk_and_srv_string(buf_log_tag, svc, be);
+  get_bk_and_srv_string(buf_log_tag, svc, (BACKEND *)be);
 
   if (ret_val = pthread_mutex_lock(&svc->mut))
     logmsg(LOG_WARNING, "kill_be() lock: %s", strerror(ret_val));

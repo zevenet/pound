@@ -301,7 +301,7 @@ unsigned char **get_subjectaltnames(X509 * x509, unsigned int *count)
     switch (name->type) {
       case GEN_DNS:
         temp[local_count] =
-          strndup(ASN1_STRING_data(name->d.dNSName),
+          strndup(ASN1_STRING_get0_data(name->d.dNSName),
                   ASN1_STRING_length(name->d.dNSName)
                   + 1);
         if (temp[local_count] == NULL)
@@ -737,7 +737,7 @@ static IMPLEMENT_LHASH_COMP_FN(t_cmp, const TABNODE *)
  * Forms a composite pattern of all URLs within
  * of the form ((url1)|(url2)|(url3)) (and so on)
  */
-static char *parse_orurls()
+static char *parse_orurls(void)
 {
   char lin[MAXBUF];
   char *pattern;

@@ -24,7 +24,7 @@ int waf_check_rule(char *rule_str)
 
   rule = msc_create_rules_set();
   //msc_rules_add
-  msc_rules_add(rule, rule_str, &err_msg);
+  msc_rules_add(rule, rule_str, (const char **) &err_msg);
 
   if (err_msg) {
     err_rul = 1;
@@ -47,7 +47,7 @@ int waf_check_set(char *file)
 
   rule = msc_create_rules_set();
   //msc_rules_add
-  msc_rules_add_file(rule, file, &err_msg);
+  msc_rules_add_file(rule, file, (const char **) &err_msg);
 
   if (err_msg) {
     err_rul = 1;
@@ -81,7 +81,7 @@ int waf_memo_create(WAF_RULESET_MEMO ** waf_rules)
 
     for (it = waf_rules_file; it != NULL; it = it->next) {
       //msc_rules_add
-      msc_rules_add_file(tmp_set, it->file, &err);
+      msc_rules_add_file(tmp_set, it->file, (const char **)&err);
 
       if (err) {
         err_flag++;
@@ -114,6 +114,35 @@ int waf_memo_create(WAF_RULESET_MEMO ** waf_rules)
   return err_flag;
 }
 
+static int waf_memo_lock(WAF_RULESET_MEMO * waf_rules)
+{
+  int err;
+  if (err = pthread_mutex_lock(&waf_rules->mut)) {
+    logmsg(LOG_WARNING, "waf_memo_lock(): %s", strerror(err));
+  }
+  return err;
+}
+
+static int waf_memo_unlock(WAF_RULESET_MEMO * waf_rules)
+{
+  int err;
+  if (err = pthread_mutex_unlock(&waf_rules->mut)) {
+    logmsg(LOG_WARNING, "waf_memo_unlock(): %s", strerror(err));
+  }
+  return err;
+}
+
+/* */
+static int waf_memo_get_counter(WAF_RULESET_MEMO * waf_rules)
+{
+  int counter = 0;
+
+  waf_memo_lock(waf_rules);
+  counter = (waf_rules->counter);
+  waf_memo_unlock(waf_rules);
+
+  return counter;
+}
 
 /* It uses the waf memo global struct "waf_rules_memo" */
 int waf_reload_rules(void)
@@ -142,36 +171,6 @@ int waf_reload_rules(void)
     }
   }
   return err;
-}
-
-int waf_memo_lock(WAF_RULESET_MEMO * waf_rules)
-{
-  int err;
-  if (err = pthread_mutex_lock(&waf_rules->mut)) {
-    logmsg(LOG_WARNING, "waf_memo_lock(): %s", strerror(err));
-  }
-  return err;
-}
-
-int waf_memo_unlock(WAF_RULESET_MEMO * waf_rules)
-{
-  int err;
-  if (err = pthread_mutex_unlock(&waf_rules->mut)) {
-    logmsg(LOG_WARNING, "waf_memo_unlock(): %s", strerror(err));
-  }
-  return err;
-}
-
-/* */
-int waf_memo_get_counter(WAF_RULESET_MEMO * waf_rules)
-{
-  int counter = 0;
-
-  waf_memo_lock(waf_rules);
-  counter = (waf_rules->counter);
-  waf_memo_unlock(waf_rules);
-
-  return counter;
 }
 
 int waf_memo_increase(WAF_RULESET_MEMO * waf_rules)
@@ -235,7 +234,8 @@ parse_headers(const char *header, char **key, int *key_size, char **value,
   int fin = 0;
   int parsing_value = 0;
   int i;
-  *key = header;
+
+  *key = (char *)header;
   *key_size = 0;
   *value_size = 0;
 
@@ -256,7 +256,7 @@ parse_headers(const char *header, char **key, int *key_size, char **value,
   if (fin == 1) {
     i--;
     *key_size = i;
-    *value = header + i + 2;
+    *value = (char *) header + i + 2;
     *value_size = strlen(header) - 2 - *key_size;       // rest size of " :
   }
 
@@ -264,7 +264,7 @@ parse_headers(const char *header, char **key, int *key_size, char **value,
 }
 
 
-int waf_add_http_info(Transaction * t, const char *header)
+static int waf_add_http_info(Transaction * t, const char *header)
 {
   int ret = 0;
   int version_str_size = 10;
@@ -315,7 +315,7 @@ int waf_add_http_info(Transaction * t, const char *header)
 }
 
 
-int waf_add_req_head(Transaction * t, char const **headers, int num_headers)
+int waf_add_req_head(Transaction * t, const char **headers, int num_headers)
 {
   char *key;
   int key_size;
@@ -330,8 +330,9 @@ int waf_add_req_head(Transaction * t, char const **headers, int num_headers)
   // skip first header, it is the VERB, URI and VERSION
   for (i = 1; cont == 1 && i < num_headers; i++) {
     cont = parse_headers(headers[i], &key, &key_size, &value, &value_size);
-    if (cont == 1)
+    if (cont == 1) {
       msc_add_n_request_header(t, key, key_size, value, value_size);
+    }
     else {
       ret = 0;
     }
@@ -343,7 +344,7 @@ int waf_add_req_head(Transaction * t, char const **headers, int num_headers)
 }
 
 
-int waf_add_resp_head(Transaction * t, char const **headers, int num_headers)
+int waf_add_resp_head(Transaction * t, const char **headers, int num_headers)
 {
   char *key;
   int key_size;
@@ -369,9 +370,9 @@ int waf_add_resp_head(Transaction * t, char const **headers, int num_headers)
     if (aux == ' ')
       aux = '\0';
 
-    if (param == 0)
+    if (param == 0) {
       http_version[ic] = aux;
-    else if (param == 1)
+    } else if (param == 1)
       http_code_str[ic] = aux;
 
     if (aux == '\0') {

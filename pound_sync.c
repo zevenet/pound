@@ -186,7 +186,7 @@ int send_action(POUND_ACTION * action)
   unsigned int size = 0;
   char *buffer = serialize(action, &size);
   if (size > 0) {
-    pthread_mutex_lock(&send_lock);
+    pthread_mutex_lock((pthread_mutex_t *) &send_lock);
     while (sent < size) {
       count = send(conn_sock, buffer + sent, size - sent, MSG_NOSIGNAL);
       if ((count == -1) && (errno == EWOULDBLOCK || errno == EAGAIN)) {
@@ -213,11 +213,11 @@ int send_action(POUND_ACTION * action)
     }
   }
   free(buffer);
-  pthread_mutex_unlock(&send_lock);
+  pthread_mutex_unlock((pthread_mutex_t *)&send_lock);
   return res;
 }
 
-void receive_task()
+void receive_task(void)
 {
   char buffer[65555 * 100];
   int buffer_size = 0;
@@ -354,7 +354,7 @@ void receive_task()
 void start_sync_thr(void)
 {
   int rc;
-  rc = pthread_create(&receive_thread, NULL, receive_task, NULL);
+  rc = pthread_create(&receive_thread, NULL, (void * (*)(void *))receive_task, NULL);
   rc = pthread_detach(receive_thread);
 }
 
@@ -528,7 +528,7 @@ void notify(ACTION_TYPE action, int listener, int service,
   send_action(&to_send);
 }
 
-void set_objects_key_id()
+void set_objects_key_id(void)
 {
   LISTENER *lstn;
   SERVICE *svc;
