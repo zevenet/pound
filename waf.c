@@ -258,6 +258,8 @@ parse_headers(const char *header, char **key, int *key_size, char **value,
     *key_size = i;
     *value = (char *) header + i + 2;
     *value_size = strlen(header) - 2 - *key_size;       // rest size of " :
+    if (*value_size < 0)
+      *value_size = 0;
   }
 
   return fin;
@@ -320,7 +322,7 @@ int waf_add_req_head(Transaction * t, const char **headers, int num_headers)
   char *key;
   int key_size;
   char *value;
-  int value_size;
+  int value_size = 0;
   int ret = 1;
   int cont = 1;
   int i;
@@ -349,7 +351,7 @@ int waf_add_resp_head(Transaction * t, const char **headers, int num_headers)
   char *key;
   int key_size;
   char *value;
-  int value_size;
+  int value_size = 0;
   int ret = 1;
   int cont = 1;
   int http_code;
