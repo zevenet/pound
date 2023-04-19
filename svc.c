@@ -558,6 +558,7 @@ int check_header(const char *header, char *const content)
     { "Expect", 6, HEADER_EXPECT },
     { "Upgrade", 7, HEADER_UPGRADE },
     { "Strict-Transport-Security", 25, HEADER_STRICT_TRANSPORT_SECURITY },
+    { "X-Forwarded-For", 15, HEADER_X_FORWARDED_FOR },
     { "", 0, HEADER_OTHER },
   };
   int i;

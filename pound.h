@@ -560,6 +560,7 @@ typedef enum {
 #define HEADER_EXPECT 11
 #define HEADER_STRICT_TRANSPORT_SECURITY 12
 #define HEADER_UPGRADE              13
+#define HEADER_X_FORWARDED_FOR 14
 
 /* control request stuff */
 typedef enum {

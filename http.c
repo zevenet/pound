@@ -641,7 +641,7 @@ void do_http(thr_arg * arg)
     loc_path[MAXBUF], **headers, headers_ok[MAXHEADERS], v_host[MAXBUF],
     referer[MAXBUF], u_agent[MAXBUF], u_name[MAXBUF], caddr[MAXADDRBUFF],
     req_time[LOG_TIME_SIZE], s_res_bytes[LOG_BYTES_SIZE], *mh,
-    buf_log_tag[MAXBUF];
+    buf_log_tag[MAXBUF], h_xfwf[MAXBUF];
   char *body_buff = NULL;
   char ip_ori[MAXADDRBUFF], ip_dst[MAXADDRBUFF];
   int port_ori, port_dst;
@@ -776,7 +776,7 @@ void do_http(thr_arg * arg)
     res_bytes = L0;
     is_rpc = -1;
     is_ws = 0;
-    v_host[0] = referer[0] = u_agent[0] = u_name[0] = '\0';
+    v_host[0] = referer[0] = u_agent[0] = u_name[0] = h_xfwf[0] = '\0';
     conn_closed = 0;
     for (n = 0; n < MAXHEADERS; n++)
       headers_ok[n] = 1;
@@ -909,6 +909,10 @@ void do_http(thr_arg * arg)
             logmsg(LOG_NOTICE, "(%lx) bad header from %s (%s)", pthread_self(),
                    caddr, headers[n]);
           }
+          headers_ok[n] = 0;
+          break;
+        case HEADER_X_FORWARDED_FOR:
+          strcpy(h_xfwf, buf);
           headers_ok[n] = 0;
           break;
       }
@@ -1464,7 +1468,10 @@ void do_http(thr_arg * arg)
     /* put additional client IP header */
     if (cur_backend->be_type == 0) {
       addr2str(caddr, MAXADDRBUFF - 1, &from_host, 1);
-      BIO_printf(be, "X-Forwarded-For: %s\r\n", caddr);
+      if (!h_xfwf[0])
+        BIO_printf(be, "X-Forwarded-For: %s\r\n", caddr);
+	  else
+        BIO_printf(be, "X-Forwarded-For: %s, %s\r\n", h_xfwf, caddr);
 
       /* final CRLF */
       BIO_puts(be, "\r\n");
