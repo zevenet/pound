@@ -9,7 +9,7 @@ SET(MAINFOLDER ${PROJECT_SOURCE_DIR})
 #endif ()
 
 #add_definitions(-DVERSION=\"pound2.8a+zevenet5\" -DC_SSL=\"\" -DC_T_RSA=\"0\" -DC_DH_LEN=\"2048\" -DC_MAXBUF=\"16384\" -DC_OWNER=\"\" -DC_GROUP=\"\" -DC_SUPER=\"0\" -DC_CERT1L=\"\"  -Wstrict-prototypes -Wno-unused-result -pipe -pthread -DNEED_STACK -DHAVE_SYSLOG_H=1 -pthread -DDH_LEN=2048  -D_REENTRANT -D_THREAD_SAFE )
-add_definitions(-DVERSION=\"pound2.8a+zevenet5\" -DC_SSL=\"\" -DC_T_RSA=\"0\" -DC_DH_LEN=\"2048\" -DC_MAXBUF=\"16384\" -DC_OWNER=\"\" -DC_GROUP=\"\" -DC_SUPER=\"0\" -DC_CERT1L=\"\" -Wstrict-prototypes -Wno-unused-result -pipe -DNEED_STACK -DHAVE_SYSLOG_H=1 -DDH_LEN=2048 -DMAXBUF=16384 -D_REENTRANT -D_THREAD_SAFE) #
+add_definitions(-DVERSION=\"pound2.8a.12+zevenet5\" -DC_SSL=\"\" -DC_T_RSA=\"0\" -DC_DH_LEN=\"2048\" -DC_MAXBUF=\"16384\" -DC_OWNER=\"\" -DC_GROUP=\"\" -DC_SUPER=\"0\" -DC_CERT1L=\"\" -Wstrict-prototypes -Wno-unused-result -pipe -DNEED_STACK -DHAVE_SYSLOG_H=1 -DDH_LEN=2048 -DMAXBUF=16384 -D_REENTRANT -D_THREAD_SAFE) #
 add_definitions(-DWAF=1)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -lresolv -rdynamic -lm -ldl ")
