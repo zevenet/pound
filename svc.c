@@ -1807,13 +1807,13 @@ static void do_RSAgen(void)
   RSA *t_RSA512_keys[N_RSA_KEYS];
   RSA *t_RSA1024_keys[N_RSA_KEYS];
 
+  if (ret_val = pthread_mutex_lock(&RSA_mut))
+    logmsg(LOG_WARNING, "thr_RSAgen() lock: %s", strerror(ret_val));
   for (n = 0; n < N_RSA_KEYS; n++) {
     /* FIXME: Error handling */
     generate_key(&t_RSA512_keys[n], 512);
     generate_key(&t_RSA1024_keys[n], 1024);
   }
-  if (ret_val = pthread_mutex_lock(&RSA_mut))
-    logmsg(LOG_WARNING, "thr_RSAgen() lock: %s", strerror(ret_val));
   for (n = 0; n < N_RSA_KEYS; n++) {
     RSA_free(RSA512_keys[n]);
     RSA512_keys[n] = t_RSA512_keys[n];
