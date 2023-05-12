@@ -991,10 +991,6 @@ void kill_be(SERVICE * const svc, const BACKEND * be, const int disable_mode)
   BACKEND *b;
   int ret_val;
   char buf[MAXBUF];
-  char buf_log_tag[MAXBUF];
-
-  /* get a tag for logs with backend and service */
-  get_bk_and_srv_string(buf_log_tag, svc, (BACKEND *)be);
 
   if (ret_val = pthread_mutex_lock(&svc->mut))
     logmsg(LOG_WARNING, "kill_be() lock: %s", strerror(ret_val));
@@ -1004,8 +1000,8 @@ void kill_be(SERVICE * const svc, const BACKEND * be, const int disable_mode)
       switch (disable_mode) {
         case BE_DISABLE:
           b->disabled = 1;
-          logmsg(LOG_NOTICE, "%s (%lx) BackEnd disabled", buf_log_tag,
-                 pthread_self(), buf);
+          logmsg(LOG_NOTICE, "service %s, backend %s, (%lx) BackEnd disabled",
+		         svc->name, buf, pthread_self());
           break;
         case BE_KILL:
           b->alive = 0;
@@ -1013,18 +1009,18 @@ void kill_be(SERVICE * const svc, const BACKEND * be, const int disable_mode)
           logmsg(LOG_NOTICE,
                  "(%lx) BackEnd %s dead (killed) in farm: '%s', service: '%s'",
                  pthread_self(), buf, name, svc->name);
-          logmsg(LOG_NOTICE, "%s (%lx) BackEnd dead (killed)", buf_log_tag,
-                 pthread_self());
+          logmsg(LOG_NOTICE, "service %s, backend %s, (%lx) BackEnd dead (killed)",
+                 svc->name, buf, pthread_self());
           t_clean(svc->sessions, &be, sizeof(be));
           break;
         case BE_ENABLE:
-          logmsg(LOG_NOTICE, "%s (%lx) BackEnd enabled", buf_log_tag,
-                 pthread_self());
+          logmsg(LOG_NOTICE, "service %s, backend %s, (%lx) BackEnd enabled",
+		         svc->name, buf, pthread_self());
           b->disabled = 0;
           break;
         default:
-          logmsg(LOG_WARNING, "%s kill_be(): unknown mode %d", buf_log_tag,
-                 disable_mode);
+          logmsg(LOG_WARNING, "service %s, backend %s, kill_be(): unknown mode %d",
+                 svc->name, buf, disable_mode);
           break;
       }
     if (b->alive && !b->disabled)
